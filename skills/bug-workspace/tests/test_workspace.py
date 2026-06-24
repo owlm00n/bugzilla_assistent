@@ -1,7 +1,7 @@
 import json, os, re, sys, tempfile, shutil
 
-sys.path.insert(0, r"D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-workspace")
-sys.path.insert(0, r"D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-core")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "bug-core"))
 
 PASS, FAIL = 0, 0
 

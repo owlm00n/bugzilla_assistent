@@ -35,15 +35,15 @@ pip install httpx requests
 
 ```batch
 :: bug-core — Bug 查询核心 (GROUP 1-4, 6-7, 共 63 用例)
-cd D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-core
+cd skills\bug-core
 python tests\test_core.py
 
 :: bug-workspace — 工作区管理 (GROUP 5 + GROUP 9, 共 57 用例)
-cd D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-workspace
+cd skills\bug-workspace
 python tests\test_workspace.py
 
 :: bug-logs — 日志目录与附件下载 (GROUP 8 + GROUP 9, 共 51 用例)
-cd D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-logs
+cd skills\bug-logs
 python tests\test_logs.py
 ```
 
@@ -104,7 +104,7 @@ python tests\test_logs.py
 
 **手动验证方法**:
 ```batch
-cd D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-logs
+cd skills\bug-logs
 python -c "from bug_logs import parse_unisoc_structured_fields; import json; text=open('comment_0.txt','r',encoding='utf-8').read(); r=parse_unisoc_structured_fields(text); print(json.dumps(r, ensure_ascii=False, indent=2))"
 ```
 
@@ -125,7 +125,7 @@ python -c "from bug_logs import parse_unisoc_structured_fields; import json; tex
 
 **手动验证方法**:
 ```batch
-cd D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-logs
+cd skills\bug-logs
 python -c "from bug_logs import list_log_directory; import json; r=list_log_directory('\\\\shnas02\\TestLogs'); print(json.dumps(r, ensure_ascii=False, indent=2))"
 ```
 
@@ -367,15 +367,15 @@ python -c "from bug_logs import list_log_directory; import json; r=list_log_dire
 
 ```batch
 :: 验证 bug-logs 可以导入 bug_core
-cd D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-logs
+cd skills\bug-logs
 python -c "from bug_logs import fetch_bug_with_logs; print('bug-logs OK')"
 
 :: 验证 bug-workspace 可以导入 bug_core
-cd D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-workspace
+cd skills\bug-workspace
 python -c "from bug_workspace import generate_workspace; print('bug-workspace OK')"
 
 :: 验证 MCP Server 可以从 3 个模块导入
-cd D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-core\mcp-server
+cd skills\bug-core\mcp-server
 python -c "import server; print('MCP Server OK')"
 ```
 

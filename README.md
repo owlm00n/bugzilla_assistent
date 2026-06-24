@@ -1,4 +1,4 @@
-# arkclaw-skills
+# bugzilla-assistant
 
 USB/PD 驱动开发 AI 辅助 Skill 集合
 
@@ -19,7 +19,7 @@ USB/PD 驱动开发 AI 辅助 Skill 集合
 ## 目录结构
 
 ```
-arkclaw-skills/
+bugzilla-assistant/
 ├── skills/          # 9 个 AI Skill
 ├── knowledge/       # 知识库（PD/USB协议、故障案例、提示词模板）
 ├── data/            # 示例数据（脱敏 log 文件）

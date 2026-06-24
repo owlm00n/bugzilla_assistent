@@ -563,7 +563,7 @@ feishu-integration ──→ 飞书卡片推送全流程结果
 
 | 层次 | 技术 |
 |------|------|
-| Agent 平台 | OpenClaw / ArkClaw |
+| Agent 平台 | OpenClaw / Claude Code |
 | 开发语言 | Python 3.12 |
 | 协议解析 | 正则 + 状态机 |
 | 可视化 | HTML + CSS + JavaScript (单文件) |

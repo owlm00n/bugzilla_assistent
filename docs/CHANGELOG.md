@@ -55,7 +55,7 @@
 ## [2026-06-02]
 
 ### 协作策略
-- docs: COLLABORATION v4 — 开发平等 + 部署仅限 ArkClaw [OpenClaw]
+- docs: COLLABORATION v4 — 开发平等 + 部署仅限核心平台 [OpenClaw]
 - docs: COLLABORATION v3 — 所有 Agent 平等协作，去掉角色区分 [OpenClaw]
 - docs: COLLABORATION v2 — 新增冲突管理、崩溃恢复、策略更新协议 [OpenClaw]
 - docs: 新增 ONBOARD.md — 新 Agent 快速上手指南 [OpenClaw]
@@ -65,12 +65,12 @@
 - docs: 更新 README.md — 完整目录结构 + 当前进度 [OpenClaw]
 
 ### 部署
-- chore(deploy): 5 个自定义技能部署到 ArkClaw runtime [OpenClaw]
+- chore(deploy): 5 个自定义技能部署到 runtime [OpenClaw]
   - bug-assistant, code-generator, feishu-integration, log-analyzer, protocol-parser
 - chore(deploy): 同步 runtime-backup/ [OpenClaw]
 
 ### 项目结构
-- chore: 目录结构整理 v2 — workspace 非仓库，arkclaw-competition 独立仓库 [OpenClaw]
+- chore: 目录结构整理 v2 — workspace 非仓库，项目独立仓库 [OpenClaw]
 - chore: 新增 runtime-backup/ — 运行时文件备份 [OpenClaw]
 - chore: 清理仓库中的 OpenClaw 运行时文件 [OpenClaw]
 - chore: 修复配置文件 symlink [OpenClaw]

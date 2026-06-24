@@ -26,7 +26,7 @@ LIGHT_GRAY = RGBColor(0xCC, 0xCC, 0xCC)
 DIM_GRAY = RGBColor(0x88, 0x88, 0x88)
 CARD_BG = RGBColor(0x25, 0x25, 0x3A)
 
-OUTPUT_PATH = "E:/go/04_AI/arkclaw_create/docs/submission/演示PPT.pptx"
+OUTPUT_PATH = "E:/go/04_AI/bugzilla_assistent/docs/submission/演示PPT.pptx"
 
 prs = Presentation()
 prs.slide_width = SLIDE_WIDTH
@@ -963,7 +963,7 @@ add_multiline_textbox(slide, 1.0, 4.8, 11, 1.5, [
     "2026 火山杯 · 紫光展锐 AI 创新大赛",
     "研发与创新赛道",
     "",
-    "github.com/owlm00n/arkclaw_create",
+    "github.com/owlm00n/bugzilla_assistent",
 ], font_size=16, color=DIM_GRAY, alignment=PP_ALIGN.CENTER, line_spacing=1.5)
 
 # Bottom bar

@@ -1,8 +1,8 @@
 import json, os, re, sys
 
-sys.path.insert(0, r"D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-logs")
-sys.path.insert(0, r"D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-core")
-sys.path.insert(0, r"D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-core\mcp-server")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "bug-core"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "bug-core", "mcp-server"))
 
 PASS, FAIL = 0, 0
 

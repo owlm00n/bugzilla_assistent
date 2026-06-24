@@ -1,7 +1,7 @@
 import json, os, re, sys, subprocess, tempfile, shutil
 
-sys.path.insert(0, r"D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-core")
-sys.path.insert(0, r"D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-core\mcp-server")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "mcp-server"))
 
 PASS, FAIL = 0, 0
 
@@ -150,7 +150,7 @@ print()
 print("=" * 60)
 print("GROUP 6: CLI End-to-End")
 print("=" * 60)
-CLI = r"D:\06_Project\arkclaw_create\owlmyclaw\skills\bug-core\bug_core.py"
+CLI = os.path.join(os.path.dirname(__file__), "..", "bug_core.py")
 PY = r"C:\Program Files\Python310\python.exe"
 
 def run_cli(*args):
