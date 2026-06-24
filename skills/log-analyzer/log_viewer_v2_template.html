@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OWLMYCLAW Log Viewer Pro - {title}</title>
+<style>
+:root {
+    --bg: #1a1a2e; --surface: #16213e; --border: #0f3460;
+    --text: #e0e0e0; --text-dim: #8892b0; --accent: #64ffda;
+    --accent2: #38bdf8; --error: #ff6b6b; --warn: #ffd93d;
+    --info: #4ecdc4; --tx: #38bdf8; --rx: #a78bfa;
+    --highlight-bg: rgba(255,217,61,0.15); --line-hover: rgba(100,255,218,0.05);
+    --toolbar-bg: #0d1117; --panel-bg: #111827; --chip-bg: #1e293b;
+    --chip-hover: #334155; --copy-success: #22c55e; --direction-active: #3b82f6;
+    --or-color: #f59e0b; --and-color: #3b82f6;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Cascadia Code','Fira Code','SF Mono',Consolas,monospace; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+.main-layout { display: flex; flex: 1; overflow: hidden; }
+.sidebar { width: 300px; min-width: 300px; background: var(--panel-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.sidebar-section { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.sidebar-section:last-child { border-bottom: none; }
+.section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.direction-list { display: flex; flex-direction: column; gap: 3px; }
+.direction-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; font-size: 0.76rem; }
+.direction-item:hover { background: var(--chip-hover); border-color: var(--border); }
+.direction-item.active { background: rgba(59,130,246,0.15); border-color: var(--direction-active); }
+.direction-item .dir-name { flex: 1; color: var(--text); }
+.direction-item .dir-count { font-size: 0.65rem; color: var(--text-dim); background: var(--chip-bg); padding: 1px 6px; border-radius: 8px; }
+.keyword-chips { display: flex; flex-wrap: wrap; gap: 4px; max-height: 280px; overflow-y: auto; }
+.keyword-chips::-webkit-scrollbar { width: 4px; }
+.keyword-chips::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.kw-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; padding: 2px 7px; border-radius: 4px; background: var(--chip-bg); color: var(--text); border: 1px solid var(--border); cursor: pointer; transition: all 0.15s; white-space: nowrap; user-select: none; }
+.kw-chip:hover { background: var(--chip-hover); border-color: var(--accent); }
+.kw-chip.selected { background: rgba(100,255,218,0.15); border-color: var(--accent); color: var(--accent); }
+.kw-chip .copy-icon,.kw-chip .edit-icon,.kw-chip .del-icon { font-size: 0.55rem; opacity: 0; transition: opacity 0.15s; margin-left: 1px; cursor: pointer; }
+.kw-chip:hover .copy-icon,.kw-chip:hover .edit-icon,.kw-chip:hover .del-icon { opacity: 0.5; }
+.kw-chip .copy-icon:hover { opacity: 1; color: var(--accent2); }
+.kw-chip .edit-icon:hover { opacity: 1; color: var(--warn); }
+.kw-chip .del-icon:hover { opacity: 1; color: var(--error); }
+.quick-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+.btn-sm { font-size: 0.68rem; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--chip-bg); color: var(--text); cursor: pointer; transition: all 0.15s; font-family: inherit; white-space: nowrap; }
+.btn-sm:hover { background: var(--chip-hover); border-color: var(--accent); }
+.btn-sm.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+.btn-sm.primary:hover { opacity: 0.85; }
+.btn-sm.danger { border-color: var(--error); color: var(--error); }
+.btn-sm.danger:hover { background: rgba(255,107,107,0.1); }
+.mode-toggle { display: inline-flex; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+.mode-btn { font-size: 0.63rem; padding: 2px 8px; cursor: pointer; border: none; background: var(--chip-bg); color: var(--text-dim); font-family: inherit; transition: all 0.15s; }
+.mode-btn.active-and { background: var(--and-color); color: #fff; }
+.mode-btn.active-or { background: var(--or-color); color: #000; }
+.mode-btn:first-child { border-right: 1px solid var(--border); }
+.format-select { font-size: 0.63rem; padding: 2px 4px; border-radius: 3px; border: 1px solid var(--border); background: var(--chip-bg); color: var(--text); font-family: inherit; cursor: pointer; }
+.format-select:focus { border-color: var(--accent); outline: none; }
+.copy-preview { font-size: 0.63rem; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; margin-top: 6px; word-break: break-all; max-height: 60px; overflow-y: auto; font-family: inherit; cursor: pointer; }
+.copy-preview:hover { border-color: var(--accent); }
+.add-kw-row { display: flex; gap: 4px; margin-top: 6px; }
+.add-kw-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: inherit; font-size: 0.72rem; padding: 3px 7px; outline: none; }
+.add-kw-row input:focus { border-color: var(--accent); }
+.add-kw-row input::placeholder { color: var(--text-dim); opacity: 0.4; }
+.content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar { background: var(--toolbar-bg); border-bottom: 1px solid var(--border); padding: 6px 14px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; }
+.toolbar .title { font-size: 0.82rem; color: var(--accent); font-weight: 600; white-space: nowrap; }
+.toolbar .stats { font-size: 0.72rem; color: var(--text-dim); white-space: nowrap; }
+.toolbar .spacer { flex: 1; }
+.active-kw-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 26px; padding: 3px 14px; background: var(--toolbar-bg); border-bottom: 1px solid var(--border); }
+.active-kw-bar .label { font-size: 0.63rem; color: var(--text-dim); white-space: nowrap; }
+.active-kw-tag { font-size: 0.63rem; padding: 1px 5px; border-radius: 3px; background: rgba(100,255,218,0.1); color: var(--accent); border: 1px solid rgba(100,255,218,0.2); display: inline-flex; align-items: center; gap: 3px; }
+.active-kw-tag .remove { cursor: pointer; opacity: 0.5; font-size: 0.65rem; }
+.active-kw-tag .remove:hover { opacity: 1; color: var(--error); }
+.search-box { display: flex; align-items: center; gap: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; min-width: 240px; }
+.search-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(100,255,218,0.1); }
+.search-box input { background: none; border: none; color: var(--text); font-family: inherit; font-size: 0.82rem; outline: none; flex: 1; min-width: 100px; }
+.search-box input::placeholder { color: var(--text-dim); opacity: 0.5; }
+.search-box .icon { color: var(--text-dim); font-size: 0.82rem; }
+.search-box .count { font-size: 0.68rem; color: var(--text-dim); min-width: 35px; text-align: right; }
+.search-box .btn-clear { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 0.85rem; padding: 0 3px; display: none; }
+.search-box .btn-clear.visible { display: block; }
+.search-box .btn-clear:hover { color: var(--error); }
+.filter-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.chip { font-size: 0.68rem; padding: 2px 7px; border-radius: 10px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); transition: all 0.15s; white-space: nowrap; }
+.chip:hover { border-color: var(--accent); color: var(--text); }
+.chip.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+.chip.error { border-color: var(--error); color: var(--error); }
+.chip.error.active { background: var(--error); color: var(--bg); }
+.chip.warn { border-color: var(--warn); color: var(--warn); }
+.chip.warn.active { background: var(--warn); color: var(--bg); }
+.log-container { flex: 1; overflow-y: auto; overflow-x: auto; font-size: 0.78rem; line-height: 1.55; }
+.log-container::-webkit-scrollbar { width: 7px; height: 7px; }
+.log-container::-webkit-scrollbar-track { background: var(--bg); }
+.log-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.log-line { display: flex; padding: 1px 0; white-space: pre; transition: background 0.1s; }
+.log-line:hover { background: var(--line-hover); }
+.log-line.hidden { display: none; }
+.log-line.match { background: var(--highlight-bg); }
+.line-num { color: var(--text-dim); opacity: 0.4; min-width: 55px; text-align: right; padding-right: 10px; user-select: none; flex-shrink: 0; font-size: 0.72rem; }
+.line-content { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.hl-error { color: var(--error); font-weight: 600; }
+.hl-warn { color: var(--warn); }
+.hl-info { color: var(--info); }
+.hl-tx { color: var(--tx); }
+.hl-rx { color: var(--rx); }
+.hl-time { color: var(--text-dim); }
+.hl-module { color: #c084fc; }
+.hl-keyword { background: rgba(255,217,61,0.2); border-radius: 2px; padding: 0 2px; }
+.statusbar { background: var(--toolbar-bg); border-top: 1px solid var(--border); padding: 3px 14px; font-size: 0.68rem; color: var(--text-dim); display: flex; gap: 14px; flex-shrink: 0; }
+.toast { position: fixed; bottom: 35px; left: 50%; transform: translateX(-50%); background: var(--copy-success); color: #000; padding: 5px 14px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; z-index: 999; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; color: var(--text-dim); gap: 8px; }
+.collapse-toggle { cursor: pointer; user-select: none; }
+.collapse-toggle .arrow { display: inline-block; transition: transform 0.2s; font-size: 0.55rem; }
+.collapse-toggle.collapsed .arrow { transform: rotate(-90deg); }
+.collapse-content { overflow: hidden; transition: max-height 0.3s; }
+.collapse-content.collapsed { max-height: 0 !important; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; display: flex; align-items: center; justify-content: center; }
+.modal-overlay.hidden { display: none; }
+.modal { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; min-width: 360px; max-width: 500px; }
+.modal h3 { font-size: 0.85rem; color: var(--accent); margin-bottom: 10px; }
+.modal input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: inherit; font-size: 0.78rem; padding: 6px 10px; outline: none; margin-bottom: 8px; }
+.modal input:focus { border-color: var(--accent); }
+.modal .btn-row { display: flex; gap: 6px; justify-content: flex-end; }
+
+.dir-actions { display: flex; gap: 4px; margin-top: 6px; }
+.dir-item-actions { display: none; gap: 2px; margin-left: auto; }
+.direction-item:hover .dir-item-actions { display: flex; }
+.dir-item-actions .act-icon { font-size: 0.55rem; cursor: pointer; opacity: 0.5; padding: 1px 3px; }
+.dir-item-actions .act-icon:hover { opacity: 1; }
+.dir-item-actions .act-edit:hover { color: var(--warn); }
+.dir-item-actions .act-del:hover { color: var(--error); }
+.role-badge { font-size: 0.55rem; padding: 1px 4px; border-radius: 3px; background: rgba(56,189,248,0.15); color: var(--accent2); margin-left: 4px; }
+
+@media (max-width: 768px) { .sidebar { display: none; } }
+</style>
+</head><body>
+<div class="main-layout">
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-section">
+        <div class="section-title"><span>🎯</span> 问题方向 <span style="font-size:0.55rem;opacity:0.5;">(来自角色画像 + 自定义)</span></div>
+        <div class="direction-list" id="directionList">
+            <div class="direction-item active" data-direction="" onclick="selectDirection('')">
+                <span class="dir-name">📋 全部关键词</span>
+                <span class="dir-count" id="totalKwCount">0</span>
+            </div>
+            {direction_items}
+        </div>
+        <div class="dir-actions">
+            <button class="btn-sm" onclick="openNewDirectionModal()" style="font-size:0.63rem;">➕ 新建方向</button>
+        </div>
+    </div>
+    <div class="sidebar-section">
+        <div class="section-title collapse-toggle" id="kwSectionToggle" onclick="toggleKwSection()">
+            <span class="arrow">▼</span><span>🔑</span> 搜索关键词
+            <span style="margin-left:auto;font-size:0.63rem;opacity:0.5;" id="kwSectionCount">0</span>
+        </div>
+        <div class="collapse-content" id="kwSectionContent" style="max-height:350px;">
+            <div class="keyword-chips" id="keywordChips">
+                <span style="color:var(--text-dim);font-size:0.68rem;">选择问题方向查看关键词</span>
+            </div>
+        </div>
+    </div>
+    <div class="sidebar-section">
+        <div class="section-title"><span>⚡</span> 快捷操作</div>
+        <div class="quick-actions">
+            <button class="btn-sm primary" onclick="copySelected()">📋 复制选中 (<span id="selCount">0</span>)</button>
+            <button class="btn-sm" onclick="selectAllKeywords()">☑️ 全选</button>
+            <button class="btn-sm" onclick="clearAllKeywords()">✕ 清除</button>
+        </div>
+        <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+            <span style="font-size:0.6rem;color:var(--text-dim);">格式:</span>
+            <select class="format-select" id="formatSelect" onchange="updateCopyPreview()">
+                <option value="regex_or">正则 OR: error|time|cap</option>
+                <option value="space">空格分隔: error time cap</option>
+                <option value="newline">换行分隔</option>
+                <option value="regex_wild">正则通配: .*error.*|.*time.*</option>
+                <option value="grep_or">grep -E: grep -E 'error|time'</option>
+            </select>
+        </div>
+        <div class="copy-preview" id="copyPreview" onclick="copySelected()" title="点击复制">
+            <span style="opacity:0.5;">选择关键词后预览...</span>
+        </div>
+    </div>
+    <div class="sidebar-section">
+        <div class="section-title"><span>➕</span> 添加关键词</div>
+        <div class="add-kw-row">
+            <input type="text" id="newKwInput" placeholder="输入新关键词..." onkeydown="if(event.key==='Enter')addKeyword()">
+            <button class="btn-sm primary" onclick="addKeyword()">添加</button>
+        </div>
+        <div style="font-size:0.58rem;color:var(--text-dim);margin-top:3px;">添加到当前选中的问题方向</div>
+    </div>
+</div>
+<div class="content-area">
+    <div class="toolbar">
+        <span class="title">📋 {title}</span>
+        <span class="stats" id="fileStats"></span>
+        <span class="spacer"></span>
+        <div class="filter-chips" id="filterChips">
+            <span class="chip active" data-filter="all">全部</span>
+            <span class="chip error" data-filter="ERROR">ERROR</span>
+            <span class="chip warn" data-filter="WARN">WARN</span>
+            <span class="chip" data-filter="INFO">INFO</span>
+            <span class="chip" data-filter="TX">TX</span>
+            <span class="chip" data-filter="RX">RX</span>
+        </div>
+        <div class="search-box">
+            <span class="icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="输入关键词筛选..." autofocus>
+            <span class="count" id="matchCount"></span>
+            <button class="btn-clear" id="btnClear" title="清除">✕</button>
+        </div>
+    </div>
+    <div class="active-kw-bar" id="activeKwBar">
+        <span class="label">🔑 当前关键词:</span>
+        <span style="font-size:0.63rem;color:var(--text-dim);" id="activeKwPlaceholder">点击左侧关键词添加，或直接输入搜索</span>
+        <span style="margin-left:auto;"></span>
+        <span style="font-size:0.6rem;color:var(--text-dim);">匹配:</span>
+        <div class="mode-toggle" id="modeToggle">
+            <button class="mode-btn active-and" id="modeAnd" onclick="setFilterMode('and')">AND</button>
+            <button class="mode-btn" id="modeOr" onclick="setFilterMode('or')">OR</button>
+        </div>
+    </div>
+    <div class="log-container" id="logContainer">
+        <div class="empty-state"><span class="emoji">📂</span><span>正在加载日志...</span></div>
+    </div>
+    <div class="statusbar">
+        <span id="statusTotal">总行数: 0</span>
+        <span id="statusVisible">可见: 0</span>
+        <span id="statusFilter">筛选: 无</span>
+        <span id="statusMode" style="color:var(--and-color);">模式: AND</span>
+        <span id="statusDirection" style="margin-left:auto;">方向: 全部</span>
+    </div>
+</div>
+</div>
+<div class="modal-overlay hidden" id="editModal">
+    <div class="modal">
+        <h3>✏️ 编辑关键词</h3>
+        <input type="text" id="editKwInput" placeholder="关键词...">
+        <div class="btn-row">
+            <button class="btn-sm danger" onclick="deleteKeyword()">🗑️ 删除</button>
+            <button class="btn-sm" onclick="closeEditModal()">取消</button>
+            <button class="btn-sm primary" onclick="saveEditKeyword()">保存</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay hidden" id="newDirModal">
+    <div class="modal">
+        <h3>➕ 新建问题方向</h3>
+        <input type="text" id="newDirNameInput" placeholder="方向名称（如：DMA传输异常）">
+        <input type="text" id="newDirDescInput" placeholder="描述（可选）">
+        <div class="btn-row">
+            <button class="btn-sm" onclick="closeNewDirModal()">取消</button>
+            <button class="btn-sm primary" onclick="createNewDirection()">创建</button>
+        </div>
+    </div>
+</div>
+<div class="modal-overlay hidden" id="editDirModal">
+    <div class="modal">
+        <h3>✏️ 编辑问题方向</h3>
+        <input type="text" id="editDirNameInput" placeholder="方向名称">
+        <input type="text" id="editDirDescInput" placeholder="描述">
+        <div class="btn-row">
+            <button class="btn-sm danger" onclick="deleteDirection()">🗑️ 删除方向</button>
+            <button class="btn-sm" onclick="closeEditDirModal()">取消</button>
+            <button class="btn-sm primary" onclick="saveEditDirection()">保存</button>
+        </div>
+    </div>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const LOG_LINES = {log_lines_json};
+const KEYWORD_VAULT = {keyword_vault_json};
+const INITIAL_DIRECTION = "{initial_direction}";
+const IS_STANDALONE = {is_standalone};
+let activeFilter='all',searchTerms=[],selectedKeywords=new Set(),activeDirection=INITIAL_DIRECTION||'';
+let filterMode='and',editingKeyword=null,editingDirection=null;
+
+function init(){
+    if(!IS_STANDALONE) renderLogLines(); else renderStandalone();
+    renderDirectionList(); updateStats();
+    if(activeDirection) selectDirection(activeDirection);
+    applyAllFilters();
+}
+function renderStandalone(){
+    document.getElementById('logContainer').innerHTML='<div class="empty-state"><span class="emoji">📚</span><span>关键词管理系统 — 独立模式</span><span style="font-size:0.7rem;color:var(--text-dim);">左侧选择问题方向浏览/编辑/复制关键词</span></div>';
+}
+function renderLogLines(){
+    const c=document.getElementById('logContainer');c.innerHTML='';
+    if(!LOG_LINES.length){c.innerHTML='<div class="empty-state"><span class="emoji">📭</span><span>日志为空</span></div>';return;}
+    LOG_LINES.forEach((l,i)=>{
+        const d=document.createElement('div');d.className='log-line';d.dataset.index=i;d.dataset.level=l.level||'';d.dataset.text=l.text||'';
+        const n=document.createElement('span');n.className='line-num';n.textContent=l.num||(i+1);d.appendChild(n);
+        const s=document.createElement('span');s.className='line-content';
+        let h=escapeHtml(l.text||'');
+        if(l.level==='ERROR')h='<span class="hl-error">'+h+'</span>';
+        else if(l.level==='WARN')h='<span class="hl-warn">'+h+'</span>';
+        h=h.replace(/(\[\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\])/g,'<span class="hl-time">$1</span>');
+        h=h.replace(/\[TX\]/g,'<span class="hl-tx">[TX]</span>').replace(/\[RX\]/g,'<span class="hl-rx">[RX]</span>');
+        s.innerHTML=h;d.appendChild(s);c.appendChild(d);
+    });
+}
+function escapeHtml(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+function renderDirectionList(){
+    const v=KEYWORD_VAULT;let t=0;
+    // Clear existing direction items (keep "全部")
+    const list=document.getElementById('directionList');
+    list.querySelectorAll('.direction-item[data-direction]').forEach(e=>e.remove());
+    for(const[k,i] of Object.entries(v.directions||{})){
+        const c=(i.keywords||[]).length;t+=c;
+        const d=document.createElement('div');d.className='direction-item';d.dataset.direction=k;
+        d.onclick=function(e){
+            if(e.target.closest('.dir-item-actions'))return;
+            selectDirection(k);
+        };
+        const roleBadge=i.from_role?'<span class="role-badge" title="来自角色: '+escapeHtml(i.from_role)+'">👤</span>':'';
+        d.innerHTML='<span style="font-size:0.8rem;">'+getIcon(k)+'</span><span class="dir-name">'+escapeHtml(i.name)+roleBadge+'</span><span class="dir-count">'+c+'</span>'
+            +'<span class="dir-item-actions">'
+            +'<span class="act-icon act-edit" onclick="event.stopPropagation();openEditDirModal(\''+escapeAttr(k)+'\')" title="编辑方向">✏️</span>'
+            +'<span class="act-icon act-del" onclick="event.stopPropagation();confirmDeleteDir(\''+escapeAttr(k)+'\')" title="删除方向">✕</span>'
+            +'</span>';
+        list.appendChild(d);
+    }
+    document.getElementById('totalKwCount').textContent=t;
+}
+function getIcon(k){const i={protocol_timeout:'⏱️',power_mismatch:'⚡',enum_failure:'🔌',connection_stability:'🔗',role_swap:'🔄',thermal_throttle:'🌡️',firmware_boot:'🐛'};return i[k]||'📌';}
+function selectDirection(d){
+    activeDirection=d;
+    document.querySelectorAll('.direction-item').forEach(e=>e.classList.toggle('active',e.dataset.direction===d));
+    renderKeywordChips(d);
+    document.getElementById('statusDirection').textContent='方向: '+(d?(KEYWORD_VAULT.directions[d]?.name||d):'全部');
+}
+function renderKeywordChips(d){
+    const c=document.getElementById('keywordChips');c.innerHTML='';
+    let kw=[];
+    if(d&&KEYWORD_VAULT.directions[d])kw=KEYWORD_VAULT.directions[d].keywords||[];
+    else for(const[k,i] of Object.entries(KEYWORD_VAULT.directions||{}))(i.keywords||[]).forEach(w=>{if(!kw.includes(w))kw.push(w);});
+    if(!kw.length){c.innerHTML='<span style="color:var(--text-dim);font-size:0.68rem;">暂无关键词</span>';document.getElementById('kwSectionCount').textContent='0';return;}
+    document.getElementById('kwSectionCount').textContent=kw.length;
+    kw.forEach(w=>{
+        const ch=document.createElement('span');ch.className='kw-chip';
+        if(selectedKeywords.has(w))ch.classList.add('selected');
+        ch.title='点击: 添加/移除 | 📋: 复制 | ✏️: 编辑 | ✕: 删除';
+        ch.innerHTML='<span onclick="toggleKeyword(\''+escapeAttr(w)+'\')">'+escapeHtml(w)+'</span>'
+            +'<span class="copy-icon" onclick="event.stopPropagation();copySingle(\''+escapeAttr(w)+'\')" title="复制">📋</span>'
+            +'<span class="edit-icon" onclick="event.stopPropagation();openEditModal(\''+escapeAttr(w)+'\')" title="编辑">✏️</span>'
+            +'<span class="del-icon" onclick="event.stopPropagation();confirmDelete(\''+escapeAttr(w)+'\')" title="删除">✕</span>';
+        c.appendChild(ch);
+    });
+    updateCopyPreview();
+}
+function toggleKeyword(k){selectedKeywords.has(k)?selectedKeywords.delete(k):selectedKeywords.add(k);renderKeywordChips(activeDirection);updateActiveKwBar();applyAllFilters();updateCopyPreview();}
+function selectAllKeywords(){
+    let kw=[];
+    if(activeDirection&&KEYWORD_VAULT.directions[activeDirection])kw=KEYWORD_VAULT.directions[activeDirection].keywords||[];
+    else for(const[k,i] of Object.entries(KEYWORD_VAULT.directions||{}))(i.keywords||[]).forEach(w=>{if(!kw.includes(w))kw.push(w);});
+    kw.forEach(k=>selectedKeywords.add(k));
+    renderKeywordChips(activeDirection);updateActiveKwBar();applyAllFilters();updateCopyPreview();
+    showToast('☑️ 已全选 '+kw.length+' 个关键词');
+}
+function clearAllKeywords(){selectedKeywords.clear();renderKeywordChips(activeDirection);updateActiveKwBar();applyAllFilters();updateCopyPreview();showToast('✕ 已清除');}
+function setFilterMode(m){
+    filterMode=m;
+    document.getElementById('modeAnd').className='mode-btn '+(m==='and'?'active-and':'');
+    document.getElementById('modeOr').className='mode-btn '+(m==='or'?'active-or':'');
+    document.getElementById('statusMode').textContent='模式: '+(m==='and'?'AND':'OR');
+    document.getElementById('statusMode').style.color=m==='and'?'var(--and-color)':'var(--or-color)';
+    applyAllFilters();
+}
+function getCopyText(){
+    const fmt=document.getElementById('formatSelect').value;
+    const kws=[...selectedKeywords];
+    if(!kws.length)return'';
+    switch(fmt){
+        case'regex_or':return kws.join('|');
+        case'space':return kws.join(' ');
+        case'newline':return kws.join('\n');
+        case'regex_wild':return kws.map(k=>'.*'+k+'.*').join('|');
+        case'grep_or':return"grep -E '"+kws.join('|')+"'";
+        default:return kws.join('|');
+    }
+}
+function updateCopyPreview(){
+    const p=document.getElementById('copyPreview'),t=getCopyText();
+    document.getElementById('selCount').textContent=selectedKeywords.size;
+    if(t)p.innerHTML='<code style="color:var(--accent);">'+escapeHtml(t)+'</code>';
+    else p.innerHTML='<span style="opacity:0.5;">选择关键词后预览...</span>';
+}
+function copySelected(){
+    const t=getCopyText();
+    if(!t){showToast('⚠️ 请先选择关键词');return;}
+    navigator.clipboard.writeText(t).then(()=>{
+        const f=document.getElementById('formatSelect').value;
+        const lb={regex_or:'正则OR',space:'空格',newline:'换行',regex_wild:'通配',grep_or:'grep'};
+        showToast('✅ 已复制 '+selectedKeywords.size+' 词 ('+(lb[f]||f)+')');
+    });
+}
+function copySingle(k){
+    const f=document.getElementById('formatSelect').value;
+    let t=k;
+    if(f==='grep_or')t="grep -E '"+k+"'";
+    else if(f==='regex_wild')t='.*'+k+'.*';
+    navigator.clipboard.writeText(t).then(()=>showToast('✅ 已复制: '+k));
+}
+function openEditModal(kw){editingKeyword=kw;editingDirection=activeDirection;document.getElementById('editKwInput').value=kw;document.getElementById('editModal').classList.remove('hidden');document.getElementById('editKwInput').focus();document.getElementById('editKwInput').select();}
+function closeEditModal(){document.getElementById('editModal').classList.add('hidden');editingKeyword=null;editingDirection=null;}
+function saveEditKeyword(){
+    const nv=document.getElementById('editKwInput').value.trim();
+    if(!nv||!editingKeyword||!editingDirection)return;
+    if(!KEYWORD_VAULT.directions[editingDirection])return;
+    const d=KEYWORD_VAULT.directions[editingDirection];
+    const idx=d.keywords.indexOf(editingKeyword);
+    if(idx>=0)d.keywords[idx]=nv;
+    if(selectedKeywords.has(editingKeyword)){selectedKeywords.delete(editingKeyword);selectedKeywords.add(nv);}
+    closeEditModal();renderKeywordChips(activeDirection);updateActiveKwBar();applyAllFilters();
+    showToast('✅ 已更新: '+editingKeyword+' → '+nv);
+}
+function confirmDelete(kw){
+    if(!confirm('确定删除关键词 "'+kw+'" 吗？'))return;
+    if(!activeDirection||!KEYWORD_VAULT.directions[activeDirection])return;
+    const d=KEYWORD_VAULT.directions[activeDirection];
+    const idx=d.keywords.indexOf(kw);
+    if(idx>=0)d.keywords.splice(idx,1);
+    selectedKeywords.delete(kw);
+    renderKeywordChips(activeDirection);updateActiveKwBar();applyAllFilters();
+    showToast('🗑️ 已删除: '+kw);
+}
+function deleteKeyword(){if(editingKeyword)confirmDelete(editingKeyword);closeEditModal();}
+function updateActiveKwBar(){
+    const b=document.getElementById('activeKwBar'),p=document.getElementById('activeKwPlaceholder');
+    b.querySelectorAll('.active-kw-tag').forEach(t=>t.remove());
+    if(!selectedKeywords.size){p.style.display='inline';return;}
+    p.style.display='none';
+    selectedKeywords.forEach(k=>{
+        const t=document.createElement('span');t.className='active-kw-tag';
+        t.innerHTML=escapeHtml(k)+' <span class="remove" onclick="toggleKeyword(\''+escapeAttr(k)+'\')">✕</span>';
+        b.appendChild(t);
+    });
+}
+function addKeyword(){
+    const inp=document.getElementById('newKwInput'),kw=inp.value.trim();
+    if(!kw)return;
+    if(!activeDirection){showToast('⚠️ 请先选择问题方向');return;}
+    if(!KEYWORD_VAULT.directions[activeDirection])return;
+    const d=KEYWORD_VAULT.directions[activeDirection];
+    if(!d.keywords.includes(kw))d.keywords.push(kw);
+    inp.value='';renderKeywordChips(activeDirection);showToast('✅ 已添加: '+kw);
+}
+function applyAllFilters(){
+    const lines=document.querySelectorAll('.log-line');let vc=0;
+    lines.forEach(l=>{
+        const lv=l.dataset.level,tx=l.dataset.text.toLowerCase();
+        let lm=activeFilter==='all'||lv===activeFilter;
+        let at=[...searchTerms];selectedKeywords.forEach(k=>{if(!at.includes(k))at.push(k);});
+        let sm=true;
+        if(at.length){
+            if(filterMode==='and')sm=at.every(t=>tx.includes(t.toLowerCase()));
+            else sm=at.some(t=>tx.includes(t.toLowerCase()));
+        }
+        if(lm&&sm){l.classList.remove('hidden');vc++;if(at.length)l.classList.add('match');else l.classList.remove('match');}
+        else l.classList.add('hidden');
+    });
+    updateStats(vc);
+}
+function escapeAttr(s){return s.replace(/'/g,"\\'").replace(/"/g,'&quot;');}
+function updateStats(vc){
+    const t=LOG_LINES.length;
+    document.getElementById('fileStats').textContent='共 '+t+' 行';
+    document.getElementById('statusTotal').textContent='总行数: '+t;
+    document.getElementById('statusVisible').textContent='可见: '+(vc!==undefined?vc:t);
+}
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
+
+// ===== Direction Management =====
+function openNewDirectionModal(){
+    document.getElementById('newDirNameInput').value='';
+    document.getElementById('newDirDescInput').value='';
+    document.getElementById('newDirModal').classList.remove('hidden');
+    document.getElementById('newDirNameInput').focus();
+}
+function closeNewDirModal(){document.getElementById('newDirModal').classList.add('hidden');}
+function createNewDirection(){
+    const name=document.getElementById('newDirNameInput').value.trim();
+    const desc=document.getElementById('newDirDescInput').value.trim();
+    if(!name){showToast('⚠️ 请输入方向名称');return;}
+    const id='custom_'+Date.now();
+    KEYWORD_VAULT.directions[id]={name:name,description:desc,keywords:[],from_role:'自定义'};
+    closeNewDirModal();renderDirectionList();selectDirection(id);
+    showToast('✅ 已创建方向: '+name);
+}
+function openEditDirModal(dirId){
+    if(!KEYWORD_VAULT.directions[dirId])return;
+    const d=KEYWORD_VAULT.directions[dirId];
+    document.getElementById('editDirNameInput').value=d.name||'';
+    document.getElementById('editDirDescInput').value=d.description||'';
+    document.getElementById('editDirModal').dataset.dirId=dirId;
+    document.getElementById('editDirModal').classList.remove('hidden');
+}
+function closeEditDirModal(){document.getElementById('editDirModal').classList.add('hidden');}
+function saveEditDirection(){
+    const dirId=document.getElementById('editDirModal').dataset.dirId;
+    if(!dirId||!KEYWORD_VAULT.directions[dirId])return;
+    const d=KEYWORD_VAULT.directions[dirId];
+    d.name=document.getElementById('editDirNameInput').value.trim()||d.name;
+    d.description=document.getElementById('editDirDescInput').value.trim();
+    closeEditDirModal();renderDirectionList();
+    if(activeDirection===dirId)selectDirection(dirId);
+    showToast('✅ 方向已更新');
+}
+function confirmDeleteDir(dirId){
+    const d=KEYWORD_VAULT.directions[dirId];
+    if(!d)return;
+    if(!confirm('确定删除方向 "'+d.name+'" 及其所有关键词吗？'))return;
+    deleteDirectionById(dirId);
+}
+function deleteDirectionById(dirId){
+    const dirId2=document.getElementById('editDirModal').dataset.dirId;
+    const target=dirId||dirId2;
+    if(!target||!KEYWORD_VAULT.directions[target])return;
+    const name=KEYWORD_VAULT.directions[target].name;
+    delete KEYWORD_VAULT.directions[target];
+    if(activeDirection===target){activeDirection='';selectDirection('');}
+    closeEditDirModal();renderDirectionList();renderKeywordChips(activeDirection);
+    showToast('🗑️ 已删除方向: '+name);
+}
+function deleteDirection(){deleteDirectionById(null);}
+
+function toggleKwSection(){
+    document.getElementById('kwSectionToggle').classList.toggle('collapsed');
+    document.getElementById('kwSectionContent').classList.toggle('collapsed');
+}
+document.getElementById('filterChips').addEventListener('click',function(e){
+    const ch=e.target.closest('.chip');if(!ch)return;
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    ch.classList.add('active');activeFilter=ch.dataset.filter;
+    document.getElementById('statusFilter').textContent='筛选: '+(activeFilter==='all'?'全部':activeFilter);
+    applyAllFilters();
+});
+const si=document.getElementById('searchInput'),bc=document.getElementById('btnClear'),mc=document.getElementById('matchCount');
+si.addEventListener('input',function(){
+    const v=this.value.trim();searchTerms=v?v.split(/\s+/):[];
+    if(searchTerms.length){bc.classList.add('visible');mc.textContent=searchTerms.length+'词';}
+    else{bc.classList.remove('visible');mc.textContent='';}
+    applyAllFilters();
+});
+bc.addEventListener('click',function(){si.value='';searchTerms=[];bc.classList.remove('visible');mc.textContent='';applyAllFilters();});
+document.addEventListener('keydown',function(e){
+    if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();si.focus();si.select();}
+    if(e.key==='Escape'){si.value='';searchTerms=[];bc.classList.remove('visible');mc.textContent='';applyAllFilters();si.blur();}
+});
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>协议解析可视化</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --border: #334155;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --tx-color: #38bdf8;
+            --rx-color: #a78bfa;
+            --error-color: #f87171;
+            --warn-color: #fbbf24;
+            --ok-color: #4ade80;
+            --info-color: #60a5fa;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+            background: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container { max-width: 1300px; margin: 0 auto; }
+
+        /* Header */
+        .header {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 4px;
+        }
+        .header-icon { font-size: 1.8rem; }
+        h1 { font-size: 1.5rem; color: var(--tx-color); }
+        .badge {
+            font-size: 0.7rem; padding: 2px 8px; border-radius: 10px;
+            font-weight: bold; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .badge.pd { background: rgba(56,189,248,0.2); color: var(--tx-color); }
+        .badge.usb { background: rgba(167,139,250,0.2); color: var(--rx-color); }
+        .badge.mixed { background: rgba(96,165,250,0.2); color: var(--info-color); }
+        .subtitle { color: var(--text-dim); font-size: 0.8rem; margin-bottom: 20px; }
+
+        /* Tab Navigation */
+        .tabs {
+            display: flex; gap: 0; margin-bottom: 20px;
+            border-bottom: 2px solid var(--border);
+        }
+        .tab {
+            padding: 8px 20px; cursor: pointer; font-size: 0.85rem;
+            color: var(--text-dim); border: none; background: none;
+            border-bottom: 2px solid transparent; margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--tx-color); border-bottom-color: var(--tx-color); }
+
+        /* Summary Cards */
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            transition: border-color 0.2s;
+        }
+        .card:hover { border-color: var(--tx-color); }
+        .card-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+        .card-value { font-size: 1.4rem; font-weight: bold; margin-top: 4px; }
+        .card-value.success { color: var(--ok-color); }
+        .card-value.fail { color: var(--error-color); }
+        .card-value.warn { color: var(--warn-color); }
+        .card-value.info { color: var(--tx-color); }
+        .card-value.usb { color: var(--rx-color); }
+
+        /* Section */
+        .section { margin-bottom: 24px; }
+        .section-title {
+            font-size: 1rem; margin-bottom: 12px; padding-bottom: 8px;
+            border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px;
+        }
+        .section-count {
+            font-size: 0.7rem; color: var(--text-dim); background: var(--surface);
+            padding: 2px 8px; border-radius: 10px;
+        }
+
+        /* Legend */
+        .legend {
+            display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex; align-items: center; gap: 6px; font-size: 0.8rem;
+        }
+        .legend-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 40px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border);
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 10px;
+            padding: 10px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.82rem;
+            transition: border-color 0.15s;
+        }
+        .timeline-item:hover { border-color: var(--tx-color); }
+        .timeline-item.tx { border-left: 3px solid var(--tx-color); }
+        .timeline-item.rx { border-left: 3px solid var(--rx-color); }
+        .timeline-item.error { border-left: 3px solid var(--error-color); background: rgba(248,113,113,0.08); }
+        .timeline-item.warn { border-left: 3px solid var(--warn-color); background: rgba(251,191,36,0.05); }
+        .timeline-item.info { border-left: 3px solid var(--info-color); }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -33px;
+            top: 14px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--border);
+        }
+        .timeline-item.tx::before { background: var(--tx-color); }
+        .timeline-item.rx::before { background: var(--rx-color); }
+        .timeline-item.error::before { background: var(--error-color); }
+        .timeline-item.warn::before { background: var(--warn-color); }
+        .timeline-item.info::before { background: var(--info-color); }
+
+        .msg-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .msg-type { font-weight: bold; font-size: 0.85rem; }
+        .msg-dir {
+            font-size: 0.65rem; padding: 2px 8px; border-radius: 3px;
+            text-transform: uppercase; font-weight: bold; letter-spacing: 1px;
+        }
+        .msg-dir.tx { background: rgba(56,189,248,0.2); color: var(--tx-color); }
+        .msg-dir.rx { background: rgba(167,139,250,0.2); color: var(--rx-color); }
+        .msg-dir.error { background: rgba(248,113,113,0.2); color: var(--error-color); }
+        .msg-dir.warn { background: rgba(251,191,36,0.2); color: var(--warn-color); }
+        .msg-dir.info { background: rgba(96,165,250,0.2); color: var(--info-color); }
+        .msg-time { font-size: 0.72rem; color: var(--text-dim); }
+        .msg-details { font-size: 0.78rem; color: var(--text-dim); margin-top: 4px; }
+        .msg-raw { font-size: 0.72rem; color: var(--text-dim); margin-top: 4px; font-style: italic; opacity: 0.6; word-break: break-all; }
+
+        /* USB Stage Tags */
+        .stage-tag {
+            display: inline-block; font-size: 0.65rem; padding: 1px 6px;
+            border-radius: 3px; margin-right: 6px; text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .stage-tag.connect { background: rgba(74,222,128,0.2); color: var(--ok-color); }
+        .stage-tag.reset { background: rgba(251,191,36,0.2); color: var(--warn-color); }
+        .stage-tag.descriptor { background: rgba(56,189,248,0.2); color: var(--tx-color); }
+        .stage-tag.address { background: rgba(167,139,250,0.2); color: var(--rx-color); }
+        .stage-tag.config { background: rgba(96,165,250,0.2); color: var(--info-color); }
+
+        /* Anomalies */
+        .anomaly-item {
+            padding: 10px 14px;
+            background: rgba(248,113,113,0.08);
+            border: 1px solid rgba(248,113,113,0.25);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 0.82rem;
+            color: var(--error-color);
+        }
+        .anomaly-item.warn {
+            background: rgba(251,191,36,0.08);
+            border-color: rgba(251,191,36,0.25);
+            color: var(--warn-color);
+        }
+        .anomaly-severity {
+            font-size: 0.65rem; padding: 1px 6px; border-radius: 3px;
+            margin-right: 8px; font-weight: bold; text-transform: uppercase;
+        }
+        .anomaly-severity.critical { background: rgba(248,113,113,0.2); color: var(--error-color); }
+        .anomaly-severity.warning { background: rgba(251,191,36,0.2); color: var(--warn-color); }
+        .anomaly-severity.info { background: rgba(96,165,250,0.2); color: var(--info-color); }
+
+        /* Capability Table */
+        .cap-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+        .cap-table th, .cap-table td {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            font-size: 0.78rem;
+            text-align: left;
+        }
+        .cap-table th { background: var(--surface); color: var(--text-dim); font-weight: 600; }
+        .cap-table tr:hover { background: rgba(56,189,248,0.05); }
+
+        /* Timing SVG */
+        .timing-svg {
+            width: 100%;
+            overflow-x: auto;
+            background: var(--surface);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .timing-svg svg { display: block; }
+
+        /* USB Enumeration Flow */
+        .enum-flow {
+            display: flex; align-items: center; gap: 0; flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .enum-step {
+            padding: 8px 16px; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 6px;
+            font-size: 0.78rem; text-align: center; min-width: 100px;
+        }
+        .enum-step.completed { border-color: var(--ok-color); background: rgba(74,222,128,0.08); }
+        .enum-step.failed { border-color: var(--error-color); background: rgba(248,113,113,0.08); }
+        .enum-step.current { border-color: var(--tx-color); background: rgba(56,189,248,0.08); }
+        .enum-arrow {
+            font-size: 1.2rem; color: var(--text-dim); padding: 0 4px;
+        }
+        .enum-step-label { font-weight: bold; margin-bottom: 2px; }
+        .enum-step-time { font-size: 0.65rem; color: var(--text-dim); }
+
+        /* Tab Content */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .summary { grid-template-columns: repeat(2, 1fr); }
+            .enum-flow { flex-direction: column; }
+            .enum-arrow { transform: rotate(90deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-icon" id="header-icon">⚡</div>
+            <h1 id="title">协议解析可视化</h1>
+            <span class="badge" id="type-badge">PD</span>
+        </div>
+        <div class="subtitle" id="subtitle"></div>
+
+        <!-- Tabs (for mixed mode) -->
+        <div class="tabs" id="tabs" style="display:none">
+            <button class="tab active" data-tab="pd">⚡ PD 协商</button>
+            <button class="tab" data-tab="usb">🔌 USB 枚举</button>
+            <button class="tab" data-tab="overview">📊 总览</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div class="tab-content active" id="tab-overview">
+            <div class="summary" id="summary"></div>
+            <div class="section" id="enum-flow-section" style="display:none">
+                <div class="section-title">🔌 USB 枚举流程</div>
+                <div class="enum-flow" id="enum-flow"></div>
+            </div>
+            <div class="section" id="anomalies-section-overview" style="display:none">
+                <div class="section-title">⚠️ 异常汇总 <span class="section-count" id="anomaly-count-overview"></span></div>
+                <div id="anomalies-overview"></div>
+            </div>
+        </div>
+
+        <!-- PD Tab -->
+        <div class="tab-content" id="tab-pd">
+            <div class="legend">
+                <div class="legend-item"><div class="legend-dot" style="background:var(--tx-color)"></div>TX (发送)</div>
+                <div class="legend-item"><div class="legend-dot" style="background:var(--rx-color)"></div>RX (接收)</div>
+                <div class="legend-item"><div class="legend-dot" style="background:var(--warn-color)"></div>异常/警告</div>
+                <div class="legend-item"><div class="legend-dot" style="background:var(--error-color)"></div>错误</div>
+            </div>
+            <div class="section">
+                <div class="section-title">📈 PD 协议交互时序图</div>
+                <div class="timing-svg" id="pd-timing-diagram"></div>
+            </div>
+            <div class="section">
+                <div class="section-title">📋 协商能力</div>
+                <div id="pd-capability-table"></div>
+            </div>
+            <div class="section">
+                <div class="section-title">🕐 消息时序详情 <span class="section-count" id="pd-msg-count"></span></div>
+                <div class="timeline" id="pd-timeline"></div>
+            </div>
+            <div class="section" id="pd-anomalies-section" style="display:none">
+                <div class="section-title">⚠️ PD 异常检测</div>
+                <div id="pd-anomalies"></div>
+            </div>
+        </div>
+
+        <!-- USB Tab -->
+        <div class="tab-content" id="tab-usb">
+            <div class="legend">
+                <div class="legend-item"><div class="legend-dot" style="background:var(--tx-color)"></div>TX (发送)</div>
+                <div class="legend-item"><div class="legend-dot" style="background:var(--rx-color)"></div>RX (接收)</div>
+                <div class="legend-item"><div class="legend-dot" style="background:var(--ok-color)"></div>连接</div>
+                <div class="legend-item"><div class="legend-dot" style="background:var(--warn-color)"></div>警告</div>
+                <div class="legend-item"><div class="legend-dot" style="background:var(--error-color)"></div>错误</div>
+            </div>
+            <div class="section">
+                <div class="section-title">📈 USB 枚举时序图</div>
+                <div class="timing-svg" id="usb-timing-diagram"></div>
+            </div>
+            <div class="section">
+                <div class="section-title">🔍 设备信息</div>
+                <div id="usb-device-info"></div>
+            </div>
+            <div class="section">
+                <div class="section-title">🕐 枚举事件详情 <span class="section-count" id="usb-event-count"></span></div>
+                <div class="timeline" id="usb-timeline"></div>
+            </div>
+            <div class="section" id="usb-anomalies-section" style="display:none">
+                <div class="section-title">⚠️ USB 异常检测</div>
+                <div id="usb-anomalies"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ============================================================
+    // Data injection
+    // ============================================================
+    const DATA = {
+  "log_type": "pd",
+  "log_file": "../../data/sample_pd_negotiation_fail.log",
+  "pd": {
+    "source_id": "pd_session",
+    "log_file": "sample_pd_negotiation_fail.log",
+    "start_time_ms": 1778826481256.0,
+    "end_time_ms": 1778826486201.0,
+    "duration_ms": 4945.0,
+    "messages": [
+      {
+        "timestamp": 1778826481256.0,
+        "direction": "OTHER",
+        "message_type": "HARD_RESET",
+        "raw_line": "[2026-05-15 14:28:01.256] [INFO]  [pd_protocol] Hard Reset transmitted",
+        "params": {
+          "role": "transmitter"
+        },
+        "delay_from_prev": 0.0
+      },
+      {
+        "timestamp": 1778826481500.0,
+        "direction": "OTHER",
+        "message_type": "HARD_RESET",
+        "raw_line": "[2026-05-15 14:28:01.500] [INFO]  [pd_protocol] Hard Reset received from sink",
+        "params": {
+          "role": "receiver"
+        },
+        "delay_from_prev": 244.0
+      },
+      {
+        "timestamp": 1778826481523.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:01.523] [INFO]  [pd_protocol] Capability 1: Fixed PDO - 5V/3A (15000mW)",
+        "params": {},
+        "delay_from_prev": 23.0
+      },
+      {
+        "timestamp": 1778826481524.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:01.524] [INFO]  [pd_protocol] Capability 2: Fixed PDO - 9V/2A (18000mW)",
+        "params": {},
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826481525.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:01.525] [INFO]  [pd_protocol] Capability 3: Fixed PDO - 12V/1.5A (18000mW)",
+        "params": {},
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826481526.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:01.526] [INFO]  [pd_protocol] Capability 4: Variable PDO - 12-20V/3A (36000mW)",
+        "params": {},
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826481600.0,
+        "direction": "TX",
+        "message_type": "SOURCE_CAP",
+        "raw_line": "[2026-05-15 14:28:01.600] [TX]    [pd_protocol] SRC_CAP [Caps=4] vbus=5000mV, current=3000mA",
+        "params": {
+          "num_caps": 4,
+          "vbus_mv": 5000,
+          "current_ma": 3000
+        },
+        "delay_from_prev": 74.0
+      },
+      {
+        "timestamp": 1778826481601.0,
+        "direction": "OTHER",
+        "message_type": "SOURCE_CAP",
+        "raw_line": "[2026-05-15 14:28:01.601] [INFO]  [pd_protocol] SRC_CAP sent successfully",
+        "params": {},
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826482810.0,
+        "direction": "RX",
+        "message_type": "WAIT",
+        "raw_line": "[2026-05-15 14:28:02.810] [RX]    [pd_protocol] WAIT_PWR_OK received (sink is powering up)",
+        "params": {},
+        "delay_from_prev": 1209.0
+      },
+      {
+        "timestamp": 1778826483500.0,
+        "direction": "RX",
+        "message_type": "SINK_CAP",
+        "raw_line": "[2026-05-15 14:28:03.500] [RX]    [pd_protocol] SNK_CAP received",
+        "params": {},
+        "delay_from_prev": 690.0
+      },
+      {
+        "timestamp": 1778826483501.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:03.501] [INFO]  [pd_protocol]   Capability 1: Fixed Operated - 5V/3A (15000mW)",
+        "params": {},
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826483502.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:03.502] [INFO]  [pd_protocol]   Capability 2: Fixed Operated - 9V/2A (18000mW)",
+        "params": {},
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826483503.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:03.503] [INFO]  [pd_protocol]   Capability 3: Variable Operated - 9-12V/2.5A (25000mW)",
+        "params": {},
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826483800.0,
+        "direction": "TX",
+        "message_type": "REQUEST",
+        "raw_line": "[2026-05-15 14:28:03.800] [TX]    [pd_protocol] REQUEST [Cap=2] 9V/2A",
+        "params": {
+          "type": "REQUEST",
+          "cap_index": 2,
+          "voltage_v": 9.0,
+          "current_a": 2.0
+        },
+        "delay_from_prev": 297.0
+      },
+      {
+        "timestamp": 1778826483801.0,
+        "direction": "OTHER",
+        "message_type": "REQUEST",
+        "raw_line": "[2026-05-15 14:28:03.801] [INFO]  [pd_protocol] REQUEST sent, awaiting ACCEPT/REJECT",
+        "params": {
+          "type": "REQUEST"
+        },
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826486201.0,
+        "direction": "OTHER",
+        "message_type": "REQUEST",
+        "raw_line": "[2026-05-15 14:28:06.201] [ERROR] [pd_protocol] REQUEST timeout - no ACCEPT/REJECT received",
+        "params": {
+          "type": "REQUEST"
+        },
+        "delay_from_prev": 2400.0
+      }
+    ],
+    "capabilities": [],
+    "negotiated": {
+      "voltage_mv": 0,
+      "current_ma": 0,
+      "power_mv_a": 0,
+      "success": false
+    },
+    "anomalies": [
+      "[OTHER] 消息超时未响应 @ 2400.0ms: [2026-05-15 14:28:06.201] [ERROR] [pd_protocol] REQUEST timeout - no ACCEPT/REJECT received",
+      "消息超时未响应: [2026-05-15 14:28:04.200] [WARN]  [pd_protocol] Timeout waiting for PD response (400ms)",
+      "消息重传: [2026-05-15 14:28:04.500] [WARN]  [pd_protocol] Retransmit REQUEST [Cap=2] 9V/2A (attempt 2/3)",
+      "消息超时未响应: [2026-05-15 14:28:05.100] [WARN]  [pd_protocol] Timeout waiting for PD response (600ms)",
+      "消息重传: [2026-05-15 14:28:05.400] [WARN]  [pd_protocol] Retransmit REQUEST [Cap=2] 9V/2A (attempt 3/3)",
+      "消息重传: [2026-05-15 14:28:06.200] [ERROR] [pd_protocol] Max retransmit reached (3/3)",
+      "消息超时未响应: [2026-05-15 14:28:06.201] [ERROR] [pd_protocol] REQUEST timeout - no ACCEPT/REJECT received",
+      "VBUS电压异常: [2026-05-15 14:28:06.501] [WARN]  [pd_protocol] ⚠️ VBUS anomaly: expected 9000mV, actual 5100mV",
+      "PD协商失败: [2026-05-15 14:28:06.600] [ERROR] [pd_protocol] PD negotiation FAILED - falling back to 5V default"
+    ],
+    "state_machine_status": "UNKNOWN",
+    "message_count": 16
+  }
+};
+
+    // ============================================================
+    // Helpers
+    // ============================================================
+    function fmtTime(ms) {
+        if (ms < 1000) return ms.toFixed(1) + 'ms';
+        return (ms / 1000).toFixed(2) + 's';
+    }
+
+    function fmtVoltage(mv) {
+        if (!mv) return 'N/A';
+        return (mv / 1000).toFixed(1) + 'V';
+    }
+
+    function fmtCurrent(ma) {
+        if (!ma) return 'N/A';
+        return (ma / 1000).toFixed(2) + 'A';
+    }
+
+    function fmtPower(mw) {
+        if (!mw) return 'N/A';
+        if (mw >= 1000) return (mw / 1000).toFixed(0) + 'W';
+        return mw + 'mW';
+    }
+
+    function getAnomalySeverity(desc) {
+        if (/FAILED|DEADLOCK|死锁|Hard Reset循环|Max retransmit|达到最大/i.test(desc)) return 'critical';
+        if (/Timeout|超时|Retransmit|重传|anomaly|异常|unexpected|非预期/i.test(desc)) return 'warning';
+        return 'info';
+    }
+
+    // ============================================================
+    // Tab switching
+    // ============================================================
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    });
+
+    // ============================================================
+    // Main Render
+    // ============================================================
+    function render() {
+        const logType = DATA.log_type || 'pd';
+        const hasPd = DATA.pd && !DATA.pd_error;
+        const hasUsb = DATA.usb && !DATA.usb_error;
+
+        // Header
+        const icons = { pd: '⚡', usb: '🔌', mixed: '⚡🔌' };
+        const titles = { pd: 'PD协议解析可视化', usb: 'USB枚举解析可视化', mixed: '混合协议解析可视化' };
+        document.getElementById('header-icon').textContent = icons[logType] || '📡';
+        document.getElementById('title').textContent = titles[logType] || '协议解析可视化';
+
+        const badge = document.getElementById('type-badge');
+        badge.textContent = logType.toUpperCase();
+        badge.className = 'badge ' + logType;
+
+        const logFile = DATA.log_file || 'unknown';
+        document.getElementById('subtitle').textContent = `${logFile} | 解析时间: ${new Date().toLocaleString()}`;
+
+        // Tabs visibility
+        if (logType === 'mixed') {
+            document.getElementById('tabs').style.display = 'flex';
+            document.getElementById('tab-overview').classList.add('active');
+            document.getElementById('tab-pd').classList.remove('active');
+            document.getElementById('tab-usb').classList.remove('active');
+        } else if (logType === 'pd') {
+            document.getElementById('tab-overview').classList.add('active');
+        }
+
+        // Render sections
+        renderOverview(hasPd, hasUsb);
+        if (hasPd) renderPd(DATA.pd);
+        if (hasUsb) renderUsb(DATA.usb);
+    }
+
+    // ============================================================
+    // Overview
+    // ============================================================
+    function renderOverview(hasPd, hasUsb) {
+        const summary = document.getElementById('summary');
+        let cards = '';
+
+        if (hasPd) {
+            const n = DATA.pd;
+            const sc = n.negotiated.success ? 'success' : 'fail';
+            cards += `
+                <div class="card"><div class="card-label">⚡ PD 协商结果</div><div class="card-value ${sc}">${n.negotiated.success ? '✅ 成功' : '❌ 失败'}</div></div>
+                <div class="card"><div class="card-label">⚡ 协商电压</div><div class="card-value info">${fmtVoltage(n.negotiated.voltage_mv)}</div></div>
+                <div class="card"><div class="card-label">⚡ 协商电流</div><div class="card-value info">${fmtCurrent(n.negotiated.current_ma)}</div></div>
+                <div class="card"><div class="card-label">⚡ PD 消息数</div><div class="card-value">${n.message_count}</div></div>
+                <div class="card"><div class="card-label">⚡ PD 异常</div><div class="card-value ${n.anomalies.length ? 'warn' : 'success'}">${n.anomalies.length}</div></div>
+                <div class="card"><div class="card-label">⚡ 状态机</div><div class="card-value ${n.state_machine_status === 'COMPLETED' ? 'success' : 'fail'}">${n.state_machine_status}</div></div>
+            `;
+        }
+
+        if (hasUsb) {
+            const n = DATA.usb;
+            cards += `
+                <div class="card"><div class="card-label">🔌 USB 枚举结果</div><div class="card-value ${n.success ? 'success' : 'fail'} usb">${n.success ? '✅ 成功' : '❌ 失败'}</div></div>
+                <div class="card"><div class="card-label">🔌 USB 版本</div><div class="card-value usb">${n.device.usb_version || 'N/A'}</div></div>
+                <div class="card"><div class="card-label">🔌 VID / PID</div><div class="card-value usb" style="font-size:1rem">${n.device.vendor_id || 'N/A'} / ${n.device.product_id || 'N/A'}</div></div>
+                <div class="card"><div class="card-label">🔌 事件数</div><div class="card-value">${n.event_count}</div></div>
+                <div class="card"><div class="card-label">🔌 USB 异常</div><div class="card-value ${n.anomalies.length ? 'warn' : 'success'}">${n.anomalies.length}</div></div>
+                <div class="card"><div class="card-label">🔌 耗时</div><div class="card-value info">${fmtTime(n.duration_ms)}</div></div>
+            `;
+        }
+
+        summary.innerHTML = cards;
+
+        // USB Enumeration Flow
+        if (hasUsb) {
+            renderEnumFlow(DATA.usb);
+        }
+
+        // Combined anomalies
+        const allAnomalies = [];
+        if (hasPd && DATA.pd.anomalies) allAnomalies.push(...DATA.pd.anomalies.map(a => ({ source: 'PD', text: a })));
+        if (hasUsb && DATA.usb.anomalies) allAnomalies.push(...DATA.usb.anomalies.map(a => ({ source: 'USB', text: a })));
+
+        if (allAnomalies.length > 0) {
+            document.getElementById('anomalies-section-overview').style.display = 'block';
+            document.getElementById('anomaly-count-overview').textContent = allAnomalies.length;
+            document.getElementById('anomalies-overview').innerHTML = allAnomalies.map(a => {
+                const sev = getAnomalySeverity(a.text);
+                return `<div class="anomaly-item ${sev === 'warning' ? 'warn' : ''}">
+                    <span class="anomaly-severity ${sev}">[${a.source}] ${sev}</span>${a.text}
+                </div>`;
+            }).join('');
+        }
+    }
+
+    function renderEnumFlow(usbData) {
+        const section = document.getElementById('enum-flow-section');
+        const flow = document.getElementById('enum-flow');
+        section.style.display = 'block';
+
+        const stages = [
+            { key: 'connect', label: '连接', icon: '🔗' },
+            { key: 'reset', label: '复位', icon: '🔄' },
+            { key: 'address', label: '地址分配', icon: '📍' },
+            { key: 'descriptor', label: '描述符', icon: '📋' },
+            { key: 'config', label: '配置', icon: '⚙️' },
+        ];
+
+        // Determine which stages completed
+        const completedStages = new Set();
+        const stageTimes = {};
+        if (usbData.events) {
+            usbData.events.forEach(e => {
+                if (e.stage) completedStages.add(e.stage);
+                if (e.stage && !stageTimes[e.stage]) {
+                    stageTimes[e.stage] = e.delay_from_prev;
+                }
+            });
+        }
+
+        let isFailed = !usbData.success;
+        let html = '';
+        stages.forEach((s, i) => {
+            const done = completedStages.has(s.key);
+            let cls = '';
+            if (isFailed && i === stages.length - 1) cls = 'failed';
+            else if (done) cls = 'completed';
+            else if (i === completedStages.size) cls = 'current';
+
+            html += `<div class="enum-step ${cls}">
+                <div class="enum-step-label">${s.icon} ${s.label}</div>
+                <div class="enum-step-time">${done ? '✅' : isFailed && i >= completedStages.size ? '❌' : '⏳'}</div>
+            </div>`;
+            if (i < stages.length - 1) {
+                html += '<div class="enum-arrow">→</div>';
+            }
+        });
+        flow.innerHTML = html;
+    }
+
+    // ============================================================
+    // PD Rendering
+    // ============================================================
+    function renderPd(n) {
+        if (!n || !n.messages) return;
+
+        document.getElementById('pd-msg-count').textContent = n.messages.length;
+
+        // Timing diagram
+        renderPdTimingDiagram(n.messages);
+
+        // Capability table
+        renderCapabilities(n.capabilities, 'pd-capability-table');
+
+        // Timeline
+        const timeline = document.getElementById('pd-timeline');
+        timeline.innerHTML = n.messages.map((msg, i) => {
+            const cls = msg.direction === 'TX' ? 'tx' : msg.direction === 'RX' ? 'rx' : '';
+            const isError = /FAIL|RESET|ERROR/i.test(msg.message_type);
+            const isWarn = /Timeout|Retransmit|WAIT/i.test(msg.message_type);
+            let itemCls = cls;
+            if (isError) itemCls += ' error';
+            else if (isWarn) itemCls += ' warn';
+
+            let paramsStr = '';
+            if (msg.params && Object.keys(msg.params).length > 0) {
+                paramsStr = Object.entries(msg.params)
+                    .filter(([_, v]) => v !== undefined && v !== null && v !== '')
+                    .map(([k, v]) => `${k}=${v}`).join(' | ');
+            }
+            const rawLine = msg.raw_line ? msg.raw_line.replace(/<[^>]*>/g, '').substring(0, 200) : '';
+
+            return `
+                <div class="timeline-item ${itemCls}">
+                    <div class="msg-header">
+                        <span class="msg-type">${msg.message_type}</span>
+                        <span class="msg-dir ${cls}">${msg.direction}</span>
+                    </div>
+                    <div class="msg-time">T+${fmtTime(msg.delay_from_prev)} | 累计 ${fmtTime(msg.timestamp - n.start_time_ms)}</div>
+                    ${paramsStr ? `<div class="msg-details">${paramsStr}</div>` : ''}
+                    ${rawLine ? `<div class="msg-raw">${rawLine}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+
+        // Anomalies
+        if (n.anomalies && n.anomalies.length > 0) {
+            document.getElementById('pd-anomalies-section').style.display = 'block';
+            document.getElementById('pd-anomalies').innerHTML = n.anomalies.map(a => {
+                const sev = getAnomalySeverity(a);
+                return `<div class="anomaly-item ${sev === 'warning' ? 'warn' : ''}">
+                    <span class="anomaly-severity ${sev}">${sev}</span>${a}
+                </div>`;
+            }).join('');
+        }
+    }
+
+    function renderPdTimingDiagram(messages) {
+        const container = document.getElementById('pd-timing-diagram');
+        const width = Math.max(800, messages.length * 90);
+        const height = 90;
+        const barH = 28;
+        const gap = (height - barH * 2) / 3;
+
+        let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`;
+        svg += `<rect width="${width}" height="${height}" fill="transparent"/>`;
+
+        const sinkLine = gap;
+        const sourceLine = gap * 2 + barH;
+
+        // Lines
+        svg += `<line x1="30" y1="${sinkLine + barH/2}" x2="${width-20}" y2="${sinkLine + barH/2}" stroke="#334155" stroke-width="1" stroke-dasharray="4"/>`;
+        svg += `<line x1="30" y1="${sourceLine + barH/2}" x2="${width-20}" y2="${sourceLine + barH/2}" stroke="#334155" stroke-width="1" stroke-dasharray="4"/>`;
+        svg += `<text x="5" y="${sinkLine+barH/2+4}" fill="#94a3b8" font-size="9">SNK</text>`;
+        svg += `<text x="5" y="${sourceLine+barH/2+4}" fill="#94a3b8" font-size="9">SRC</text>`;
+
+        // Messages
+        const totalDelay = messages.reduce((s, m) => s + (m.delay_from_prev || 0), 0) || 1;
+        let x = 35;
+
+        messages.forEach((msg, i) => {
+            if (i === 0) return;
+            const segWidth = Math.max(18, Math.min(80, ((msg.delay_from_prev || 0) / totalDelay) * width * 0.5));
+            const isError = msg.raw_line && /ERROR|FAIL|Timeout|Retransmit/i.test(msg.raw_line);
+            const isWarn = msg.raw_line && /WARN/i.test(msg.raw_line);
+
+            if (msg.direction === 'TX') {
+                const y = sinkLine;
+                const fill = isError ? '#f87171' : isWarn ? '#fbbf24' : '#38bdf8';
+                svg += `<rect x="${x}" y="${y}" width="${segWidth}" height="${barH}" rx="3" fill="${fill}" opacity="0.3" />`;
+                svg += `<text x="${x + segWidth/2}" y="${y + barH/2 + 4}" text-anchor="middle" fill="${fill}" font-size="8" font-weight="bold">${msg.message_type}</text>`;
+                svg += `<polygon points="${x+segWidth},${y+4} ${x+segWidth+5},${y+barH/2} ${x+segWidth},${y+barH-4}" fill="${fill}" opacity="0.5"/>`;
+            } else {
+                const y = sourceLine;
+                const fill = isError ? '#f87171' : isWarn ? '#fbbf24' : '#a78bfa';
+                svg += `<rect x="${x}" y="${y}" width="${segWidth}" height="${barH}" rx="3" fill="${fill}" opacity="0.3" />`;
+                svg += `<text x="${x + segWidth/2}" y="${y + barH/2 + 4}" text-anchor="middle" fill="${fill}" font-size="8" font-weight="bold">${msg.message_type}</text>`;
+                svg += `<polygon points="${x+segWidth},${y+4} ${x+segWidth+5},${y+barH/2} ${x+segWidth},${y+barH-4}" fill="${fill}" opacity="0.5"/>`;
+            }
+            x += segWidth + 4;
+        });
+
+        svg += `</svg>`;
+        container.innerHTML = svg;
+    }
+
+    function renderCapabilities(capabilities, containerId) {
+        const container = document.getElementById(containerId);
+        if (!capabilities || capabilities.length === 0) {
+            container.innerHTML = '<p style="color:var(--text-dim);padding:12px">无能力数据</p>';
+            return;
+        }
+        let html = '';
+        capabilities.forEach(cap => {
+            html += `<h4 style="margin:8px 0 4px;color:var(--tx-color);font-size:0.85rem">📦 ${cap.source}</h4>`;
+            html += '<table class="cap-table"><tr><th>#</th><th>类型</th><th>电压</th><th>电流</th><th>功率</th></tr>';
+            cap.items.forEach((item, i) => {
+                const v = item.voltage_v ? `${item.voltage_v}V` : item.min_voltage_v ? `${item.min_voltage_v}-${item.max_voltage_v}V` : '-';
+                const c = item.current_a ? `${item.current_a}A` : '-';
+                const p = item.power_mw ? fmtPower(item.power_mw) : '-';
+                const type = item.type || item.content || item.label || 'N/A';
+                html += `<tr><td>${i+1}</td><td>${type}</td><td>${v}</td><td>${c}</td><td>${p}</td></tr>`;
+            });
+            html += '</table>';
+        });
+        container.innerHTML = html;
+    }
+
+    // ============================================================
+    // USB Rendering
+    // ============================================================
+    function renderUsb(n) {
+        if (!n || !n.events) return;
+
+        document.getElementById('usb-event-count').textContent = n.events.length;
+
+        // Device info
+        const devInfo = document.getElementById('usb-device-info');
+        const di = n.device || {};
+        devInfo.innerHTML = `
+            <div class="summary" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+                <div class="card"><div class="card-label">USB 版本</div><div class="card-value usb" style="font-size:1.1rem">${di.usb_version || 'N/A'}</div></div>
+                <div class="card"><div class="card-label">VID</div><div class="card-value usb" style="font-size:1.1rem">${di.vendor_id || 'N/A'}</div></div>
+                <div class="card"><div class="card-label">PID</div><div class="card-value usb" style="font-size:1.1rem">${di.product_id || 'N/A'}</div></div>
+                <div class="card"><div class="card-label">枚举耗时</div><div class="card-value info">${fmtTime(n.duration_ms)}</div></div>
+            </div>
+        `;
+
+        // Timing diagram
+        renderUsbTimingDiagram(n.events);
+
+        // Timeline
+        const timeline = document.getElementById('usb-timeline');
+        timeline.innerHTML = n.events.map((evt, i) => {
+            let cls = '';
+            if (evt.event_type === 'TX') cls = 'tx';
+            else if (evt.event_type === 'RX') cls = 'rx';
+            else if (evt.event_type === 'ERROR') cls = 'error';
+            else if (evt.event_type === 'WARN') cls = 'warn';
+            else cls = 'info';
+
+            const stageTag = evt.stage && evt.stage !== 'other'
+                ? `<span class="stage-tag ${evt.stage}">${evt.stage}</span>` : '';
+
+            let detailsStr = '';
+            if (evt.details && Object.keys(evt.details).length > 0) {
+                detailsStr = Object.entries(evt.details)
+                    .filter(([_, v]) => v !== undefined && v !== null)
+                    .map(([k, v]) => `${k}=${v}`).join(' | ');
+            }
+
+            return `
+                <div class="timeline-item ${cls}">
+                    <div class="msg-header">
+                        <span class="msg-type">${stageTag}${evt.description.substring(0, 80)}</span>
+                        <span class="msg-dir ${cls}">${evt.event_type}</span>
+                    </div>
+                    <div class="msg-time">T+${fmtTime(evt.delay_from_prev)} | 累计 ${fmtTime(evt.timestamp - n.start_time_ms)}</div>
+                    ${detailsStr ? `<div class="msg-details">${detailsStr}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+
+        // Anomalies
+        if (n.anomalies && n.anomalies.length > 0) {
+            document.getElementById('usb-anomalies-section').style.display = 'block';
+            document.getElementById('usb-anomalies').innerHTML = n.anomalies.map(a => {
+                const sev = getAnomalySeverity(a);
+                return `<div class="anomaly-item ${sev === 'warning' ? 'warn' : ''}">
+                    <span class="anomaly-severity ${sev}">${sev}</span>${a}
+                </div>`;
+            }).join('');
+        }
+    }
+
+    function renderUsbTimingDiagram(events) {
+        const container = document.getElementById('usb-timing-diagram');
+        const width = Math.max(800, events.length * 100);
+        const height = 70;
+        const barH = 24;
+        const y = (height - barH) / 2;
+
+        let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`;
+        svg += `<rect width="${width}" height="${height}" fill="transparent"/>`;
+        svg += `<line x1="20" y1="${y + barH/2}" x2="${width-20}" y2="${y + barH/2}" stroke="#334155" stroke-width="1" stroke-dasharray="4"/>`;
+
+        const totalDelay = events.reduce((s, e) => s + (e.delay_from_prev || 0), 0) || 1;
+        let x = 25;
+        const stageColors = {
+            connect: '#4ade80', reset: '#fbbf24', descriptor: '#38bdf8',
+            address: '#a78bfa', config: '#60a5fa', other: '#94a3b8'
+        };
+
+        events.forEach((evt, i) => {
+            if (i === 0) return;
+            const segWidth = Math.max(16, Math.min(80, ((evt.delay_from_prev || 0) / totalDelay) * width * 0.5));
+            const color = stageColors[evt.stage] || stageColors.other;
+            const isAnomaly = evt.event_type === 'ERROR' || evt.event_type === 'WARN';
+
+            svg += `<rect x="${x}" y="${y}" width="${segWidth}" height="${barH}" rx="3"
+                fill="${isAnomaly ? '#f87171' : color}" opacity="${isAnomaly ? 0.5 : 0.3}" />`;
+            svg += `<text x="${x + segWidth/2}" y="${y + barH/2 + 4}" text-anchor="middle"
+                fill="${isAnomaly ? '#fca5a5' : color}" font-size="8" font-weight="bold">${evt.stage}</text>`;
+            x += segWidth + 4;
+        });
+
+        svg += `</svg>`;
+        container.innerHTML = svg;
+    }
+
+    // ============================================================
+    // Go!
+    // ============================================================
+    render();
+    </script>
+</body>
+</html>

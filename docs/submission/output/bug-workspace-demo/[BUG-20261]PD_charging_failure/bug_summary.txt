@@ -1,0 +1,16 @@
+[Bug Summary]
+========================================
+ID: BUG-20261
+Title: PD充电协商失败-VBUS电压未达到5V
+Status: In Progress
+Priority: P1 | Severity: Critical
+Product: PMIC / pd_protocol
+Assignee: 张三
+Reporter: 李四
+URL: # (离线模式)
+Source: offline:sample
+[Module]: PD Charger
+[Description]: 使用XX充电器进行PD协商时，VBUS电压停留在5V无法进入9V/20V档位。log中显示SRC_CAP发送成功但REQUEST无响应。
+[Tags]: pd, vbus, negotiation
+[Attachment Hint]: pd_log_20260515.txt
+[Update Time]: 2026-05-15 14:30

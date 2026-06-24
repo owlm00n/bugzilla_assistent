@@ -1,0 +1,46 @@
+# Role: USB Driver Engineer
+# Focus: USB enumeration, device drivers, endpoint configuration, controller status
+
+role: usb_engineer
+display_name: "USB驱动工程师"
+description: "专注于USB枚举流程、设备驱动调试、端点配置、控制器状态分析"
+
+focus_keywords:
+  - "USB"
+  - "Device Descriptor"
+  - "Config Descriptor"
+  - "Interface Descriptor"
+  - "String Descriptor"
+  - "Endpoint"
+  - "ENUM"
+  - "Enumeration"
+  - "Reset"
+  - "Address"
+  - "bDeviceClass"
+  - "idVendor"
+  - "idProduct"
+  - "bcdUSB"
+  - "Hub"
+  - "Port"
+
+concern_modules:
+  - "usb_core"
+  - "usb_host"
+  - "usb_device"
+  - "usb_driver"
+  - "hub_driver"
+  - "xhci"
+  - "ehci"
+  - "ohci"
+
+search_strategy: "优先筛选枚举失败点，关注Device/Config Descriptor读取时序，检查Reset和Address分配流程"
+
+anomaly_thresholds:
+  descriptor_timeout_ms: 500
+  max_retransmit: 3
+  reset_count_limit: 2
+
+typical_workflows:
+  - "USB枚举流程: Connect -> Reset -> Address Assignment -> Device Descriptor -> Config Descriptor -> Interface -> String -> Ready"
+  - "高速模式: USB 2.0 HS -> USB 3.0 SS -> SuperSpeed枚举"
+  - "故障排查: 检查枚举阶段 -> 描述符读取 -> 驱动绑定 -> 端点配置"

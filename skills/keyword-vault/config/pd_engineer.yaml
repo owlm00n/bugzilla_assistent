@@ -1,0 +1,42 @@
+# Role: PD Charging Engineer
+# Focus: PD protocol negotiation, VBUS control, PDO/APDO parsing
+
+role: pd_engineer
+display_name: "PD充电工程师"
+description: "专注于USB PD协议协商、VBUS电压控制、Power Data Object解析"
+
+focus_keywords:
+  - "PD"
+  - "VBUS"
+  - "SRC_CAP"
+  - "SNK_CAP"
+  - "REQUEST"
+  - "ACCEPT"
+  - "PS_RDY"
+  - "PDO"
+  - "APDO"
+  - "PR_SWAP"
+  - "DR_SWAP"
+  - "HARD_RESET"
+  - "WAIT"
+  - "REJECT"
+
+concern_modules:
+  - "pd_protocol"
+  - "charger_manager"
+  - "vbus_control"
+  - "pd_power_tree"
+  - "tcpm"
+
+search_strategy: "优先筛选SRC_CAP/PS_RDY交互帧，关注VBUS电压变化时序，检测协商超时和Hard Reset循环"
+
+anomaly_thresholds:
+  negotiation_timeout_ms: 500
+  vbus_deviation_mv: 200
+  max_retries: 3
+  reset_cycle_limit: 3
+
+typical_workflows:
+  - "PD协商流程: SRC_CAP -> SNK_CAP -> REQUEST -> ACCEPT -> PS_RDY -> VBUS稳定"
+  - "PR_SWAP流程: PR_SWAP请求 -> WAIT -> ACCEPT -> HARD_RESET -> 重新协商"
+  - "故障排查: 检查VBUS电压 -> 检查PDO匹配 -> 检查重试计数 -> 检查状态机"

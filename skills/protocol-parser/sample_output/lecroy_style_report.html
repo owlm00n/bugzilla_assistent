@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PD Protocol Analyzer — LeCroy Style</title>
+<style>
+:root{--bg:#0a0e14;--surface:#12171f;--surface2:#181e28;--border:#1e2a3a;--text:#c8d6e5;--text-dim:#5c6e8a;--text-bright:#e8f0f8;--tx:#38bdf8;--rx:#a78bfa;--err:#f87171;--warn:#fbbf24;--ok:#4ade80;--accent:#f59e0b}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);padding:16px;line-height:1.5;font-size:13px}
+.container{max-width:1400px;margin:0 auto}
+.header{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:12px}
+.header h1{font-size:1.1rem;color:var(--text-bright)}
+.gauges{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px}
+.gauge{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px;text-align:center}
+.gauge-label{font-size:.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px}
+.gauge-value{font-size:1.4rem;font-weight:700;margin:4px 0}
+.gauge-unit{font-size:.7rem;color:var(--text-dim)}
+.gauge.v .gauge-value{color:var(--tx)}.gauge.a .gauge-value{color:var(--rx)}.gauge.w .gauge-value{color:var(--accent)}.gauge.ok .gauge-value{color:var(--ok)}.gauge.info .gauge-value{color:var(--info)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:12px}
+.panel-header{padding:10px 16px;font-size:.85rem;font-weight:600;color:var(--text-bright);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.pkt-table{width:100%;border-collapse:collapse}
+.pkt-table th{padding:7px 10px;font-size:.68rem;color:var(--text-dim);text-transform:uppercase;text-align:left;background:var(--surface2);border-bottom:1px solid var(--border)}
+.pkt-table td{padding:6px 10px;font-size:.78rem;border-bottom:1px solid rgba(30,42,58,0.5);font-family:'SF Mono','Fira Code','Consolas',monospace}
+.pkt-table tr{transition:background .1s}.pkt-table tr:hover{background:rgba(56,189,248,0.06)}
+.pkt-table tr.tx-row{border-left:3px solid var(--tx)}.pkt-table tr.rx-row{border-left:3px solid var(--rx)}
+.pkt-table tr.clickable{cursor:pointer}
+.pkt-dir.tx{color:var(--tx)}.pkt-dir.rx{color:var(--rx)}
+.pkt-sop{font-size:.65rem;padding:1px 5px;border-radius:3px;background:rgba(56,189,248,0.15);color:var(--tx)}
+.pkt-msg{font-weight:600}.pkt-detail{color:var(--text-dim);font-size:.7rem}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000}
+.modal-overlay.show{display:flex;align-items:center;justify-content:center}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:8px;max-width:900px;width:90%;max-height:85vh;overflow-y:auto}
+.modal-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-header h2{font-size:.95rem;color:var(--text-bright)}
+.modal-close{background:none;border:none;color:var(--text-dim);font-size:1.3rem;cursor:pointer}
+.modal-body{padding:18px}
+.bit-grid{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:8px}
+.bit-cell{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:3px;font-size:.68rem;font-weight:700;cursor:pointer;transition:.15s}
+.bit-cell.b1{background:var(--tx);color:#000}.bit-cell.b0{background:#1e2a3a;color:var(--text-dim)}
+.bit-cell:hover{transform:scale(1.15);z-index:2}
+.bit-cell.hi{box-shadow:0 0 8px var(--accent);border:1px solid var(--accent)}
+.bit-lbl{font-size:.55rem;color:var(--text-dim);text-align:center;width:28px}
+.bit-sp{width:4px}
+.dtable{width:100%;border-collapse:collapse;margin-top:10px}
+.dtable th{padding:6px 10px;font-size:.65rem;color:var(--text-dim);text-transform:uppercase;text-align:left;background:var(--surface2);border-bottom:1px solid var(--border)}
+.dtable td{padding:5px 10px;font-size:.72rem;border-bottom:1px solid rgba(30,42,58,0.5)}
+.dt-name{color:var(--tx);font-weight:600}
+.dt-val{color:var(--text-bright);font-weight:600}
+.dt-desc{color:var(--text-dim)}
+.dt-badge{margin-top:10px;padding:8px 14px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);border-radius:4px;color:var(--ok);font-size:.85rem}
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px;flex-wrap:wrap}
+.tab{padding:7px 14px;cursor:pointer;font-size:.72rem;color:var(--text-dim);border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:inherit}
+.tab:hover{color:var(--text)}.tab.active{color:var(--tx);border-bottom-color:var(--tx)}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header"><span style="font-size:1.5rem">⚡</span>
+  <div><h1>PD 3.0 PPS Protocol Analysis</h1><div style="font-size:.72rem;color:var(--text-dim)">0-kernel.log | sc27xx-typec-pd | <b>Click packet rows for bit decode</b></div></div></div>
+<div class="gauges">
+  <div class="gauge v"><div class="gauge-label">Voltage</div><div class="gauge-value">7.96</div><div class="gauge-unit">V</div></div>
+  <div class="gauge a"><div class="gauge-label">Current</div><div class="gauge-value">3.00</div><div class="gauge-unit">A</div></div>
+  <div class="gauge w"><div class="gauge-label">Power</div><div class="gauge-value">23.9</div><div class="gauge-unit">W</div></div>
+  <div class="gauge ok"><div class="gauge-label">Status</div><div class="gauge-value">✅ SNK_READY</div><div class="gauge-unit">PD 3.0 PPS</div></div>
+  <div class="gauge"><div class="gauge-label">CC Pin</div><div class="gauge-value">CC2</div><div class="gauge-unit">Pol=1</div></div>
+  <div class="gauge info"><div class="gauge-label">Max</div><div class="gauge-value">65W</div><div class="gauge-unit">20V/3.25A</div></div>
+</div>
+<div class="panel">
+  <div class="panel-header">📡 PD Messages <span style="font-size:.65rem;font-weight:400;color:var(--text-dim)">(click row → bit decode)</span></div>
+  <div style="overflow-x:auto"><table class="pkt-table" id="tbl"><thead><tr><th>#</th><th>Dir</th><th>Msg</th><th>Details</th><th>Dur</th><th>Idle</th></tr></thead><tbody id="tblBody"></tbody></table></div>
+</div>
+</div>
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeMod()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header"><h2 id="mTitle">Bit Decoder</h2><button class="modal-close" onclick="closeMod()">×</button></div>
+    <div class="modal-body"><div class="tabs" id="mTabs"></div><div id="mCont"></div></div>
+  </div>
+</div>
+<script>
+var MSG={1:"SRC_CAPABILITIES",2:"REQUEST",4:"SNK_CAPABILITIES",0xF:"VENDOR_DEFINED"};
+var REV={0:"Rev 1.0",1:"Rev 2.0",2:"Rev 3.0",3:"Rev 3.1"};
+var PKTS=[
+  {n:1,d:"RX",m:"SRC_CAP",det:"6 PDOs 5V~20V",dur:"620µs",idle:"140µs",hx:[["h",0x61a1],["p",0x0801912C],["p",0x0002D12C],["p",0x0003C12C],["p",0x0004B12C],["p",0x00064145],["p",0xC0DC2164]]},
+  {n:2,d:"TX",m:"REQUEST",det:"PDO 0: 5V/3A",dur:"487µs",idle:"442µs",hx:[["h",0x1082],["r",0x000B12C],["r",0x00001304]]},
+  {n:3,d:"RX",m:"ACCEPT",det:"header=0x03a3",dur:"487µs",idle:"158µs",hx:[["h",0x03A3]]},
+  {n:4,d:"RX",m:"PS_RDY",det:"→ SNK_READY",dur:"468µs",idle:"25.6ms",hx:[["h",0x05A6]]},
+  {n:5,d:"TX",m:"REQ(PPS)",det:"APDO 5: 5V/3A",dur:"487µs",idle:"135µs",hx:[["h",0x1282]]},
+  {n:6,d:"RX",m:"ACCEPT",det:"header=0x07a3",dur:"467µs",idle:"382µs",hx:[["h",0x07A3]]},
+  {n:7,d:"RX",m:"PS_RDY",det:"PPS 5V OK",dur:"467µs",idle:"30.5ms",hx:[["h",0x09A6]]},
+  {n:8,d:"TX",m:"REQ(PPS)",det:"7.96V/3A 🔥",dur:"487µs",idle:"135µs",hx:[["h",0x1482]]},
+  {n:9,d:"RX",m:"ACCEPT",det:"header=0x0ba3",dur:"467µs",idle:"382µs",hx:[["h",0x0BA3]]},
+  {n:10,d:"RX",m:"PS_RDY",det:"PPS 7.96V OK",dur:"467µs",idle:"—",hx:[["h",0x0DA6]]},
+  {n:11,d:"TX",m:"REQ(PPS)",det:"7.96V/2.7A",dur:"487µs",idle:"—",hx:[["h",0x1682]]},
+];
+function gb(v,h,l){return(v>>>l)&((1<<(h-l+1))-1)}
+function bin(v,b){return v.toString(2).padStart(b,'0')}
+function dh(v){var e=gb(v,15,15),n=gb(v,14,12),m=gb(v,11,9),p=gb(v,8,8),r=gb(v,7,6),d=gb(v,5,5),t=gb(v,4,0);var nm=e?"Ext 0x"+t.toString(16):MSG[t]||"0x"+t.toString(16);return{f:[[0,"Ext",15,15,v=>v?"✅ Extended":"Standard"],[1,"#DO",14,12,v=>v],[2,"MsgID",11,9,v=>v+"(roll)"],[3,"Power Role",8,8,v=>v?"🔌 Source":"📱 Sink"],[4,"Spec Rev",7,6,v=>REV[v]||"Rev "+v],[5,"Data Role",5,5,v=>v?"💻 DFP":"📱 UFP"],[6,"Reserved",4,4,v=>v?"⚠️":"OK"],[7,"Msg Type",4,0,v=>nm]],x:"📨 <b>"+nm+"</b> "+(e?"Ext ":"")+n+"DOs MsgID="+m+" "+REV[r]+" "+(p?"Source":"Sink")+" "+(d?"DFP":"UFP")}}
+function dp(v){var t=gb(v,31,30);if(t===0){var vt=gb(v,27,18),cr=gb(v,17,16);return{f:[[0,"Type",31,30,_=>"Fixed PDO"],[1,"Voltage",27,18,x=>(x*50+5000)/1000+"V"],[2,"Max Current",17,16,x=>x*10+"mA"],[3,"Unconstr Pwr",15,13,x=>x?"Yes":"No"],[4,"USB Suspend",12,11,x=>["Default","USB3","USB2","HS"][x]||"Resd"],[5,"DR Data",10,9,x=>["No DRP","DRP Src","DRP Snk"][x]||"Resd"],[6,"AU",8,8,x=>x?"Yes":"No"],[7,"Reserved",7,4,x=>x?"⚠️":"OK"],[8,"USB Comm",3,3,x=>x?"Yes":"No"],[9,"Unchunked Ext",2,2,x=>x?"Yes":"No"],[10,"Reserved",1,0,x=>x?"⚠️":"OK"]],x:"⚡ Fixed: "+(vt*50+5000)/1000+"V "+(cr*10/1000).toFixed(2)+"A ("+((vt*50+5000)*cr*10/1e6).toFixed(0)+"W)"}}else if(t===3){var mv=gb(v,27,18),xv=gb(v,17,8),mc=gb(v,7,0),st=gb(v,29,28);var sn=["E-Marker","PPS","Battery","Dual Cu","Dual Opto"][st]||"T"+st;return{f:[[0,"Type",31,30,_=>"APDO"],[1,"Sub-Type",29,28,_=>sn],[2,"Min V",27,18,x=>((x*100+3300)/1000).toFixed(2)+"V"],[3,"Max V",17,8,x=>((x*100+3300)/1000).toFixed(2)+"V"],[4,"Max Current",7,0,x=>x*50+"mA"]],x:"🔋 APDO("+sn+"): "+(mv*100+3300)/1000+"–"+(xv*100+3300)/1000+"V "+(mc*50/1000).toFixed(2)+"A"}}else{return{f:[[0,"Type",31,30,_=>({1:"Battery",2:"Variable"})[t]||"T"+t]],x:"⚠️ Non-Fixed/APDO"}}}
+function dr(v){var pos=gb(v,31,28),pps=pos>=5;if(pps){var oc=gb(v,19,10),ov=gb(v,9,0);return{f:[[0,"Obj Pos(APDO)",31,28,x=>x],[1,"Cap Mismatch",26,26,x=>x?"⚠️":"No"],[2,"USB Comm",25,25,x=>x?"Yes":"No"],[3,"No USB Suspend",24,24,x=>x?"Yes":"No"],[4,"Op Current",19,10,x=>x*50+"mA"],[5,"Output V",9,0,x=>(x*20/1000).toFixed(2)+"V"]],x:"🔋 PPS APDO "+pos+" "+(ov*20/1000).toFixed(2)+"V "+(oc*50/1000).toFixed(2)+"A ("+(ov*20*oc*50/1e6).toFixed(1)+"W)"}}else{var oc2=gb(v,19,10),mc2=gb(v,9,0);return{f:[[0,"Obj Pos",31,28,x=>x],[1,"Cap Mismatch",26,26,x=>x?"⚠️":"No"],[2,"USB Comm",25,25,x=>x?"Yes":"No"],[3,"No USB Suspend",24,24,x=>x?"Yes":"No"],[4,"Unconstr Pwr",23,23,x=>x?"Yes":"No"],[5,"Op Current",19,10,x=>x*10+"mA"],[6,"Max/Min Current",9,0,x=>x*10+"mA"]],x:"⚡ RDO: PDO "+pos+" "+(oc2*10/1000).toFixed(2)+"A"}}}
+function openMod(i){
+  var p=PKTS[i];if(!p||!p.hx)return;
+  document.getElementById('mTitle').innerHTML='Packet #'+p.n+': '+p.m+' ('+p.d+')';
+  var td=document.getElementById('mTabs'),co=document.getElementById('mCont');
+  var lbl=p.hx.map(function(h,j){return h[0]==='h'?'Header':'Data#'+j+(h[0]==='p'?'(PDO)':'(RDO)')});
+  td.innerHTML=lbl.map(function(l,i){return'<button class="tab'+(i===0?' active':'')+'" onclick="st('+i+')">'+l+'</button>'}).join('');
+  window._pkthx=p.hx;
+  sc(0);
+  document.getElementById('modal').classList.add('show');
+}
+function st(i){document.querySelectorAll('#mTabs .tab').forEach(function(t,j){t.classList.toggle('active',j===i)});sc(i)}
+function sc(i){
+  var h=window._pkthx[i];if(!h)return;
+  var v=h[1],t=h[0];
+  var bits=t==='h'?16:32;
+  var dec=t==='h'?dh(v):t==='p'?dp(v):dr(v);
+  var f=dec.f;
+  var htm='<div style="font-size:.8rem;color:var(--text-dim);margin-bottom:8px">Hex: <b style="color:var(--text-bright)">0x'+v.toString(16).toUpperCase().padStart(bits/4,'0')+'</b> | '+bits+' bits</div>';
+  htm+='<div id="bgc"></div><div id="fc"></div>';
+  document.getElementById('mCont').innerHTML=htm;
+  // Bit grid
+  var bg=document.getElementById('bgc');
+  var bhtm='<div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:2px">';
+  for(var bi=bits-1;bi>=0;bi--){bhtm+='<div class="bit-lbl">'+bi+'</div>';if(bi%4===0&&bi>0)bhtm+='<div class="bit-sp"></div>';}
+  bhtm+='</div><div class="bit-grid">';
+  for(var bi=bits-1;bi>=0;bi--){var bb=(v>>bi)&1;bhtm+='<div class="bit-cell b'+bb+'" onclick="hili('+bi+','+bits+')">'+bb+'</div>';if(bi%4===0&&bi>0)bhtm+='<div class="bit-sp"></div>';}
+  bhtm+='</div>';
+  bg.innerHTML=bhtm;
+  // Fields
+  var ft=document.getElementById('fc');
+  var fhtm='<table class="dtable"><tr><th>Field</th><th>Bits</th><th>Value</th><th>Meaning</th></tr>';
+  for(var fi=0;fi<f.length;fi++){var r=gb(v,f[fi][2],f[fi][3]);fhtm+='<tr><td class="dt-name">'+f[fi][1]+'</td><td>'+(f[fi][2]===f[fi][3]?'['+f[fi][2]+']':'['+f[fi][2]+':'+f[fi][3]+']')+'</td><td class="dt-val">'+r+' (0x'+r.toString(16).toUpperCase()+')</td><td class="dt-desc">'+f[fi][4](r)+'</td></tr>';}
+  fhtm+='</table>';
+  if(dec.x)fhtm+='<div class="dt-badge">'+dec.x+'</div>';
+  ft.innerHTML=fhtm;
+}
+function hili(n,bits){document.querySelectorAll('.bit-cell').forEach(function(c){c.classList.remove('hi')});var idx=bits-1-n;var cs=document.querySelectorAll('.bit-cell');if(cs[idx])cs[idx].classList.add('hi');}
+function closeMod(){document.getElementById('modal').classList.remove('show');}
+// Render table
+(function(){var tb=document.getElementById('tblBody');tb.innerHTML=PKTS.map(function(p,i){var c=p.d==='TX'?'tx-row':'rx-row',dc=p.d==='TX'?'tx':'rx';return'<tr class="'+c+' clickable" onclick="openMod('+i+')"><td style="color:var(--text-dim);font-size:.7rem">'+p.n+'</td><td class="pkt-dir '+dc+'">'+p.d+'</td><td class="pkt-msg">'+p.m+'</td><td class="pkt-detail">'+p.det+'</td><td class="pkt-dur">'+p.dur+'</td><td class="pkt-dur">'+p.idle+'</td></tr>';}).join('');})();
+</script>
+</body>
+</html>

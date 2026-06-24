@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PD Protocol Bit Decoder</title>
+<style>
+:root {
+  --bg: #0a0e14; --surface: #12171f; --surface2: #181e28;
+  --border: #1e2a3a; --text: #c8d6e5; --text-dim: #5c6e8a;
+  --text-bright: #e8f0f8; --tx: #38bdf8; --rx: #a78bfa;
+  --err: #f87171; --warn: #fbbf24; --ok: #4ade80; --accent: #f59e0b;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'SF Mono','Fira Code','Consolas',monospace; background: var(--bg); color: var(--text); padding: 16px; line-height: 1.5; font-size: 13px; }
+.container { max-width: 1200px; margin: 0 auto; }
+.header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px; }
+.header h1 { font-size: 1.1rem; color: var(--text-bright); }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 12px; }
+.panel-header { padding: 10px 16px; font-size: 0.85rem; font-weight: 600; color: var(--text-bright); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.panel-body { padding: 16px; }
+.input-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.input-row label { font-size: 0.78rem; color: var(--text-dim); }
+.input-row input { background: var(--surface2); border: 1px solid var(--border); color: var(--text-bright); padding: 8px 12px; border-radius: 4px; font-family: inherit; font-size: 0.9rem; width: 200px; }
+.input-row input:focus { outline: none; border-color: var(--tx); }
+.input-row select { background: var(--surface2); border: 1px solid var(--border); color: var(--text-bright); padding: 8px 12px; border-radius: 4px; font-family: inherit; font-size: 0.85rem; }
+.btn { background: var(--tx); color: #000; border: none; padding: 8px 16px; border-radius: 4px; font-family: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.btn:hover { opacity: 0.9; }
+.quick-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.quick-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 3px; font-size: 0.7rem; font-family: inherit; cursor: pointer; }
+.quick-btn:hover { border-color: var(--tx); color: var(--tx); }
+.bit-grid { display: flex; gap: 2px; flex-wrap: wrap; margin-bottom: 8px; align-items: center; }
+.bit-cell { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+.bit-cell.bit1 { background: var(--tx); color: #000; }
+.bit-cell.bit0 { background: #1e2a3a; color: var(--text-dim); }
+.bit-cell:hover { transform: scale(1.15); z-index: 2; }
+.bit-cell.highlight { box-shadow: 0 0 8px var(--accent); border: 1px solid var(--accent); }
+.bit-label { font-size: 0.6rem; color: var(--text-dim); text-align: center; width: 34px; }
+.bit-sep { width: 6px; }
+.field-table { width: 100%; border-collapse: collapse; }
+.field-table th { padding: 7px 10px; font-size: 0.68rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; text-align: left; background: var(--surface2); border-bottom: 1px solid var(--border); }
+.field-table td { padding: 6px 10px; font-size: 0.78rem; border-bottom: 1px solid rgba(30,42,58,0.5); }
+.field-table tr:hover { background: rgba(56,189,248,0.04); }
+.field-name { font-weight: 600; color: var(--tx); }
+.field-value { color: var(--text-bright); font-weight: 600; }
+.field-desc { color: var(--text-dim); font-size: 0.72rem; }
+.field-bits { color: var(--text-dim); font-size: 0.7rem; }
+.extra-info { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 8px; color: var(--ok); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+  <span style="font-size:1.5rem">🔬</span>
+  <div><h1>PD Protocol Bit-Level Decoder</h1>
+    <div style="font-size:0.72rem;color:var(--text-dim)">Header · PDO · RDO — 逐位解码，力科风格</div></div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">📥 输入</div>
+  <div class="panel-body">
+    <div class="quick-btns" id="quickBtns"></div>
+    <div class="input-row">
+      <label>Hex:</label>
+      <input type="text" id="hexInput" placeholder="0x61a1" value="0x61a1" autofocus>
+      <select id="decodeType">
+        <option value="header">PD Header (16-bit)</option>
+        <option value="pdo">PDO (32-bit)</option>
+        <option value="rdo">RDO (32-bit)</option>
+      </select>
+      <button class="btn" onclick="decode()">🔍 解码</button>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">🧬 位图 <span id="bitRange" style="font-size:0.7rem;color:var(--text-dim)"></span></div>
+  <div class="panel-body" id="bitGridWrap"></div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">📋 解码结果</div>
+  <div class="panel-body">
+    <table class="field-table" id="decodeTable"></table>
+    <div class="extra-info" id="extraInfo"></div>
+  </div>
+</div>
+</div>
+
+<script>
+const SPEC_REV = {0:"Rev 1.0", 1:"Rev 2.0", 2:"Rev 3.0", 3:"Rev 3.1"};
+const MSG_TYPES = {0x0:"Reserved",0x1:"SRC_CAPABILITIES",0x2:"REQUEST",0x3:"BIST",0x4:"SNK_CAPABILITIES",0x5:"BATTERY_STATUS",0x6:"ALERT",0x7:"GET_COUNTRY_INFO",0x8:"ENTER_USB",0xF:"VENDOR_DEFINED"};
+const EXT_MSG_TYPES = {0x0:"SOURCE_CAPABILITIES_EXT",0x1:"STATUS",0x2:"GET_BATTERY_CAP",0x3:"GET_BATTERY_STATUS",0x4:"BATTERY_CAPABILITIES",0x5:"GET_MANUFACTURER_INFO",0x6:"MANUFACTURER_INFO",0x10:"PPS_STATUS",0x11:"COUNTRY_INFO"};
+
+const QUICK = {
+  header: ["0x61a1","0x1082","0x03a3","0x05a6","0x1282","0x07a3","0x09a6","0x1482","0x0ba3","0x0da6","0x1682"],
+  pdo: ["0x0801912C","0x2D12C","0x3C12C","0x4B12C","0x64145","0xC0DC2164"],
+  rdo: ["0x0B12C","0x2D12C","0x1304"]
+};
+
+function parseHex(s) { return parseInt(s.replace(/^0x/i,'').replace(/\s/g,''), 16); }
+function getBits(v,hi,lo) { return (v>>>lo) & ((1<<(hi-lo+1))-1); }
+function toBin(v,b) { return v.toString(2).padStart(b,'0'); }
+
+function renderBitGrid(val, bits, fields) {
+  var wrap = document.getElementById('bitGridWrap');
+  var bin = toBin(val, bits);
+  var html = '';
+
+  // Bit labels
+  html += '<div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:4px">';
+  for (var i=bits-1; i>=0; i--) {
+    html += '<div class="bit-label">'+i+'</div>';
+    if (i%4===0 && i>0) html += '<div class="bit-sep"></div>';
+  }
+  html += '</div>';
+
+  // Bit cells
+  html += '<div class="bit-grid">';
+  for (var i=bits-1; i>=0; i--) {
+    var b = (val>>i)&1;
+    var cls = b?'bit1':'bit0';
+    var title = 'Bit '+i+': '+b;
+    for (var f of fields) { if (i>=f[2] && i<=f[1]) { title += ' | '+f[0]; break; } }
+    html += '<div class="bit-cell '+cls+'" title="'+title+'" onclick="highlightBit('+i+','+bits+')">'+b+'</div>';
+    if (i%4===0 && i>0) html += '<div class="bit-sep"></div>';
+  }
+  html += '</div>';
+
+  // Field ranges
+  html += '<div style="display:flex;gap:2px;flex-wrap:wrap;margin-top:6px">';
+  for (var i=bits-1; i>=0; i--) {
+    var color = 'transparent';
+    for (var f of fields) { if (i>=f[2] && i<=f[1]) { color = 'var(--tx)'; break; } }
+    html += '<div style="width:34px;height:3px;background:'+color+';opacity:0.4;border-radius:1px"></div>';
+    if (i%4===0 && i>0) html += '<div class="bit-sep"></div>';
+  }
+  html += '</div>';
+
+  // Field labels
+  html += '<div style="display:flex;gap:2px;flex-wrap:wrap;margin-top:4px;font-size:0.55rem;color:var(--text-dim)">';
+  var lastField = '';
+  for (var i=bits-1; i>=0; i--) {
+    var fn = '';
+    for (var f of fields) { if (i>=f[2] && i<=f[1]) { fn = f[0]; break; } }
+    if (fn !== lastField) {
+      html += '<div style="width:'+(34*(i-Math.max(0,fn?fields.find(ff=>ff[0]===fn)[2]:0)+1))+'px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+fn+'</div>';
+      lastField = fn;
+    }
+    if (i%4===0 && i>0) html += '<div class="bit-sep"></div>';
+  }
+  html += '</div>';
+
+  wrap.innerHTML = html;
+}
+
+function renderTable(val, fields) {
+  var tbl = document.getElementById('decodeTable');
+  var html = '<tr><th>字段</th><th>位</th><th>值</th><th>含义</th></tr>';
+  for (var f of fields) {
+    var raw = getBits(val, f[1], f[2]);
+    var bitsStr = f[1]===f[2] ? '['+f[1]+']' : '['+f[1]+':'+f[2]+']';
+    html += '<tr><td class="field-name">'+f[0]+'</td><td class="field-bits">'+bitsStr+'</td><td class="field-value">'+raw+' (0x'+raw.toString(16).toUpperCase()+')</td><td class="field-desc">'+f[3](raw,val)+'</td></tr>';
+  }
+  tbl.innerHTML = html;
+}
+
+function highlightBit(n, bits) {
+  var cells = document.querySelectorAll('.bit-cell');
+  cells.forEach(function(c){c.classList.remove('highlight')});
+  var idx = bits-1-n;
+  if (idx>=0 && idx<cells.length) cells[idx].classList.add('highlight');
+}
+
+function decode() {
+  var hex = document.getElementById('hexInput').value;
+  var type = document.getElementById('decodeType').value;
+  var val = parseHex(hex);
+  if (isNaN(val)) { document.getElementById('bitGridWrap').innerHTML='<span style="color:var(--err)">❌ 无效的十六进制值</span>'; return; }
+
+  if (type==='header') decodeHeader(val);
+  else if (type==='pdo') decodePDO(val);
+  else if (type==='rdo') decodeRDO(val);
+}
+
+function decodeHeader(val) {
+  document.getElementById('bitRange').textContent = '16-bit PD Message Header';
+  var isExt=getBits(val,15,15), numDO=getBits(val,14,12), msgId=getBits(val,11,9);
+  var powerRole=getBits(val,8,8), specRev=getBits(val,7,6), dataRole=getBits(val,5,5);
+  var msgType=getBits(val,4,0);
+  var msgName = isExt ? (EXT_MSG_TYPES[msgType]||"Extended 0x"+msgType.toString(16)) : (MSG_TYPES[msgType]||"0x"+msgType.toString(16));
+
+  var fields = [
+    ["Extended",15,15,function(v){return v?"✅ Extended":"Standard";}],
+    ["# Data Objects",14,12,function(v){return v;}],
+    ["Message ID",11,9,function(v){return v+" (rolling)";}],
+    ["Port Power Role",8,8,function(v){return v?"🔌 Source":"📱 Sink";}],
+    ["Spec Revision",7,6,function(v){return SPEC_REV[v]||"Rev "+v;}],
+    ["Port Data Role",5,5,function(v){return v?"💻 DFP/Host":"📱 UFP/Device";}],
+    ["Reserved",4,4,function(v){return v?"⚠️":"OK";}],
+    ["Message Type",4,0,function(v){return msgName;}],
+  ];
+  renderBitGrid(val,16,fields);
+  renderTable(val,fields);
+  document.getElementById('extraInfo').innerHTML = '📨 <b>'+msgName+'</b> | '+(isExt?'Extended':'Standard')+' | '+numDO+' DOs | MsgID='+msgId+' | '+SPEC_REV[specRev]+' | '+(powerRole?'Source':'Sink')+' | '+(dataRole?'DFP':'UFP');
+}
+
+function decodePDO(val) {
+  document.getElementById('bitRange').textContent = '32-bit PDO';
+  var pdoType=getBits(val,31,30), fields, extra;
+  if (pdoType===0) {
+    var v=getBits(val,27,18), c=getBits(val,17,16);
+    fields = [
+      ["PDO Type",31,30,function(v){return "Fixed PDO";}],
+      ["Voltage",27,18,function(v){return (v*50+5000)/1000+"V ("+(v*50+5000)+"mV)";}],
+      ["Max Current",17,16,function(v){return v*10+"mA";}],
+      ["Unconstrained Power",15,13,function(v){return v?"Yes":"No";}],
+      ["USB Suspend Exit",12,11,function(v){return ["Default","USB3","USB2","HS"][v]||"Reserved";}],
+      ["Dual-Role Data",10,9,function(v){return ["No DRP","DRP in Src","DRP in Snk"][v]||"Reserved";}],
+      ["AU (Augmented USB)",8,8,function(v){return v?"Yes":"No";}],
+      ["Reserved",7,4,function(v){return v?"⚠️":"OK";}],
+      ["USB Comm Capable",3,3,function(v){return v?"Yes":"No";}],
+      ["Unchunked Ext Msg",2,2,function(v){return v?"Yes":"No";}],
+      ["Reserved",1,0,function(v){return v?"⚠️":"OK";}],
+    ];
+    extra = '⚡ <b>Fixed PDO</b>: '+(v*50+5000)/1000+'V / '+(c*10/1000).toFixed(2)+'A ('+((v*50+5000)*c*10/1000000).toFixed(0)+'W)';
+  } else if (pdoType===3) {
+    var minV=getBits(val,27,18), maxV=getBits(val,17,8), maxC=getBits(val,7,0), sub=getBits(val,29,28);
+    var subN=["E-Marker","PPS","Battery","Dual-Port Copper","Dual-Port Opto"][sub]||"Type "+sub;
+    fields = [
+      ["PDO Type",31,30,function(v){return "APDO";}],
+      ["APDO Sub-Type",29,28,function(v){return subN;}],
+      ["Min Voltage",27,18,function(v){return (v*100+3300)/1000+"V ("+(v*100+3300)+"mV)";}],
+      ["Max Voltage",17,8,function(v){return (v*100+3300)/1000+"V ("+(v*100+3300)+"mV)";}],
+      ["Max Current",7,0,function(v){return v*50+"mA ("+(v*50/1000).toFixed(2)+"A)";}],
+    ];
+    extra = '🔋 <b>APDO ('+subN+')</b>: '+(minV*100+3300)/1000+'–'+(maxV*100+3300)/1000+'V / '+(maxC*50/1000).toFixed(2)+'A';
+  } else {
+    fields = [["PDO Type",31,30,function(v){return ({1:"Battery",2:"Variable"})[v]||"Type "+v;}],["Raw",31,0,function(v){return "0x"+v.toString(16).toUpperCase();}]];
+    extra = '⚠️ 非 Fixed/APDO 类型';
+  }
+  renderBitGrid(val,32,fields);
+  renderTable(val,fields);
+  document.getElementById('extraInfo').innerHTML = extra;
+}
+
+function decodeRDO(val) {
+  document.getElementById('bitRange').textContent = '32-bit RDO';
+  var objPos=getBits(val,31,28), isPPS=objPos>=5, fields, extra;
+  if (isPPS) {
+    var opC=getBits(val,19,10), outV=getBits(val,9,0);
+    fields = [
+      ["Object Position (APDO)",31,28,function(v){return v;}],
+      ["Reserved",27,27,function(v){return v?"⚠️":"OK";}],
+      ["Capability Mismatch",26,26,function(v){return v?"⚠️ Yes":"No";}],
+      ["USB Comm Capable",25,25,function(v){return v?"Yes":"No";}],
+      ["No USB Suspend",24,24,function(v){return v?"Yes":"No";}],
+      ["Reserved",23,20,function(v){return v?"⚠️":"OK";}],
+      ["Operating Current",19,10,function(v){return v*50+"mA ("+(v*50/1000).toFixed(2)+"A)";}],
+      ["Output Voltage",9,0,function(v){return v*20+"mV ("+(v*20/1000).toFixed(2)+"V)";}],
+    ];
+    extra = '🔋 <b>PPS RDO</b>: APDO '+objPos+' → '+(outV*20/1000).toFixed(2)+'V / '+(opC*50/1000).toFixed(2)+'A ('+(outV*20*opC*50/1e6).toFixed(1)+'W)';
+  } else {
+    var opC=getBits(val,19,10), maxC=getBits(val,9,0);
+    fields = [
+      ["Object Position",31,28,function(v){return v;}],
+      ["Reserved",27,27,function(v){return v?"⚠️":"OK";}],
+      ["Capability Mismatch",26,26,function(v){return v?"⚠️ Yes":"No";}],
+      ["USB Comm Capable",25,25,function(v){return v?"Yes":"No";}],
+      ["No USB Suspend",24,24,function(v){return v?"Yes":"No";}],
+      ["Unconstrained Power",23,23,function(v){return v?"Yes":"No";}],
+      ["Reserved",22,20,function(v){return v?"⚠️":"OK";}],
+      ["Operating Current",19,10,function(v){return v*10+"mA ("+(v*10/1000).toFixed(2)+"A)";}],
+      ["Max/Min Current",9,0,function(v){return v*10+"mA ("+(v*10/1000).toFixed(2)+"A)";}],
+    ];
+    extra = '⚡ <b>Fixed RDO</b>: PDO '+objPos+' → '+(opC*10/1000).toFixed(2)+'A / '+(maxC*10/1000).toFixed(2)+'A';
+  }
+  renderBitGrid(val,32,fields);
+  renderTable(val,fields);
+  document.getElementById('extraInfo').innerHTML = extra;
+}
+
+// Quick buttons
+function initQuick() {
+  var type = document.getElementById('decodeType').value;
+  var btns = document.getElementById('quickBtns');
+  var vals = QUICK[type] || [];
+  btns.innerHTML = vals.map(function(v){return '<button class="quick-btn" onclick="document.getElementById(\'hexInput\').value=\''+v+'\';decode()">'+v+'</button>';}).join('');
+}
+document.getElementById('decodeType').addEventListener('change',function(){initQuick();decode();});
+document.getElementById('hexInput').addEventListener('keydown',function(e){if(e.key==='Enter')decode();});
+initQuick();
+decode();
+</script>
+</body>
+</html>

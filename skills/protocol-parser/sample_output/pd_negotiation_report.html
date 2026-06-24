@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title} - PD协议解析可视化</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --border: #334155;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --tx-color: #38bdf8;
+            --rx-color: #a78bfa;
+            --error-color: #f87171;
+            --warn-color: #fbbf24;
+            --ok-color: #4ade80;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+            background: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { font-size: 1.5rem; margin-bottom: 8px; color: var(--tx-color); }
+        .subtitle { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 20px; }
+
+        /* Summary Cards */
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .card-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+        .card-value { font-size: 1.5rem; font-weight: bold; margin-top: 4px; }
+        .card-value.success { color: var(--ok-color); }
+        .card-value.fail { color: var(--error-color); }
+        .card-value.warn { color: var(--warn-color); }
+        .card-value.info { color: var(--tx-color); }
+
+        /* Timeline */
+        .timeline-section { margin-bottom: 24px; }
+        .section-title { font-size: 1.1rem; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+        .timeline {
+            position: relative;
+            padding-left: 40px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border);
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        .timeline-item.tx { border-left: 3px solid var(--tx-color); }
+        .timeline-item.rx { border-left: 3px solid var(--rx-color); }
+        .timeline-item.error { border-left: 3px solid var(--error-color); background: rgba(248,113,113,0.1); }
+        .timeline-item.warn { border-left: 3px solid var(--warn-color); background: rgba(251,191,36,0.05); }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -33px;
+            top: 14px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--border);
+        }
+        .timeline-item.tx::before { background: var(--tx-color); }
+        .timeline-item.rx::before { background: var(--rx-color); }
+        .timeline-item.error::before { background: var(--error-color); }
+        .timeline-item.warn::before { background: var(--warn-color); }
+
+        .msg-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .msg-type { font-weight: bold; font-size: 0.9rem; }
+        .msg-dir {
+            font-size: 0.7rem; padding: 2px 8px; border-radius: 3px;
+            text-transform: uppercase; font-weight: bold; letter-spacing: 1px;
+        }
+        .msg-dir.tx { background: rgba(56,189,248,0.2); color: var(--tx-color); }
+        .msg-dir.rx { background: rgba(167,139,250,0.2); color: var(--rx-color); }
+        .msg-dir.error { background: rgba(248,113,113,0.2); color: var(--error-color); }
+        .msg-dir.warn { background: rgba(251,191,36,0.2); color: var(--warn-color); }
+        .msg-time { font-size: 0.75rem; color: var(--text-dim); }
+        .msg-details { font-size: 0.8rem; color: var(--text-dim); margin-top: 4px; }
+        .msg-raw { font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; font-style: italic; opacity: 0.7; }
+
+        /* Anomalies */
+        .anomalies { margin-bottom: 24px; }
+        .anomaly-item {
+            padding: 10px 14px;
+            background: rgba(248,113,113,0.1);
+            border: 1px solid rgba(248,113,113,0.3);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: var(--error-color);
+        }
+
+        /* Capability Table */
+        .cap-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+        .cap-table th, .cap-table td {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            font-size: 0.8rem;
+            text-align: left;
+        }
+        .cap-table th { background: var(--surface); color: var(--text-dim); font-weight: 600; }
+        .cap-table tr:hover { background: rgba(56,189,248,0.05); }
+
+        /* SVG Timing Diagram */
+        .timing-svg {
+            width: 100%;
+            overflow-x: auto;
+            background: var(--surface);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .timing-svg svg { display: block; }
+
+        .legend {
+            display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex; align-items: center; gap: 6px; font-size: 0.8rem;
+        }
+        .legend-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .summary { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="title">⚡ PD协议解析可视化</h1>
+        <div class="subtitle" id="subtitle">Protocol Visualization</div>
+
+        <!-- Summary -->
+        <div class="summary" id="summary">
+            <!-- Filled by JS -->
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--tx-color)"></div>TX (发送)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--rx-color)"></div>RX (接收)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--warn-color)"></div>异常/警告</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--error-color)"></div>错误</div>
+        </div>
+
+        <!-- Timing Diagram -->
+        <div class="timeline-section">
+            <div class="section-title">📈 协议交互时序图</div>
+            <div class="timing-svg" id="timing-diagram"></div>
+        </div>
+
+        <!-- Capability Table -->
+        <div class="timeline-section">
+            <div class="section-title">📋 协商能力</div>
+            <div id="capability-table"></div>
+        </div>
+
+        <!-- Timeline Detail -->
+        <div class="timeline-section">
+            <div class="section-title">🕐 消息时序详情</div>
+            <div class="timeline" id="timeline"></div>
+        </div>
+
+        <!-- Anomalies -->
+        <div class="anomalies" id="anomalies-section" style="display:none">
+            <div class="section-title">⚠️ 异常检测</div>
+            <div id="anomalies"></div>
+        </div>
+    </div>
+
+    <script>
+    // ============================================================
+    // Data injection point - this will be replaced by Python
+    // ============================================================
+    const DATA = {
+  "log_type": "pd",
+  "log_file": "D:/06_Project/arkclaw_create/owlmyclaw/data/sample_pd_negotiation_fail.log",
+  "pd": {
+    "source_id": "pd_session",
+    "log_file": "sample_pd_negotiation_fail.log",
+    "start_time_ms": 1778826481523.0,
+    "end_time_ms": 1778826486201.0,
+    "duration_ms": 4678.0,
+    "messages": [
+      {
+        "timestamp": 1778826481523.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:01.523] [INFO]  [pd_protocol] Capability 1: Fixed PDO - 5V/3A (15000mW)",
+        "params": {},
+        "delay_from_prev": 0.0
+      },
+      {
+        "timestamp": 1778826481524.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:01.524] [INFO]  [pd_protocol] Capability 2: Fixed PDO - 9V/2A (18000mW)",
+        "params": {},
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826481525.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:01.525] [INFO]  [pd_protocol] Capability 3: Fixed PDO - 12V/1.5A (18000mW)",
+        "params": {},
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826481526.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:01.526] [INFO]  [pd_protocol] Capability 4: Variable PDO - 12-20V/3A (36000mW)",
+        "params": {},
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826482810.0,
+        "direction": "RX",
+        "message_type": "WAIT",
+        "raw_line": "[2026-05-15 14:28:02.810] [RX]    [pd_protocol] WAIT_PWR_OK received (sink is powering up)",
+        "params": {},
+        "delay_from_prev": 1284.0
+      },
+      {
+        "timestamp": 1778826483501.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:03.501] [INFO]  [pd_protocol]   Capability 1: Fixed Operated - 5V/3A (15000mW)",
+        "params": {},
+        "delay_from_prev": 691.0
+      },
+      {
+        "timestamp": 1778826483502.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:03.502] [INFO]  [pd_protocol]   Capability 2: Fixed Operated - 9V/2A (18000mW)",
+        "params": {},
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826483503.0,
+        "direction": "OTHER",
+        "message_type": "CAPABILITY_ENTRY",
+        "raw_line": "[2026-05-15 14:28:03.503] [INFO]  [pd_protocol]   Capability 3: Variable Operated - 9-12V/2.5A (25000mW)",
+        "params": {},
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826483800.0,
+        "direction": "TX",
+        "message_type": "REQUEST",
+        "raw_line": "[2026-05-15 14:28:03.800] [TX]    [pd_protocol] REQUEST [Cap=2] 9V/2A",
+        "params": {
+          "type": "REQUEST",
+          "cap_index": 2,
+          "voltage_v": 9.0,
+          "current_a": 2.0
+        },
+        "delay_from_prev": 297.0
+      },
+      {
+        "timestamp": 1778826483801.0,
+        "direction": "OTHER",
+        "message_type": "REQUEST",
+        "raw_line": "[2026-05-15 14:28:03.801] [INFO]  [pd_protocol] REQUEST sent, awaiting ACCEPT/REJECT",
+        "params": {
+          "type": "REQUEST"
+        },
+        "delay_from_prev": 1.0
+      },
+      {
+        "timestamp": 1778826486201.0,
+        "direction": "OTHER",
+        "message_type": "REQUEST",
+        "raw_line": "[2026-05-15 14:28:06.201] [ERROR] [pd_protocol] REQUEST timeout - no ACCEPT/REJECT received",
+        "params": {
+          "type": "REQUEST"
+        },
+        "delay_from_prev": 2400.0
+      }
+    ],
+    "capabilities": [],
+    "negotiated": {
+      "voltage_mv": 0,
+      "current_ma": 0,
+      "power_mv_a": 0,
+      "success": false
+    },
+    "anomalies": [
+      "[OTHER] 消息超时未响应 @ 2400.0ms: [2026-05-15 14:28:06.201] [ERROR] [pd_protocol] REQUEST timeout - no ACCEPT/REJECT received",
+      "消息超时未响应: [2026-05-15 14:28:04.200] [WARN]  [pd_protocol] Timeout waiting for PD response (400ms)",
+      "消息重传: [2026-05-15 14:28:04.500] [WARN]  [pd_protocol] Retransmit REQUEST [Cap=2] 9V/2A (attempt 2/3)",
+      "消息超时未响应: [2026-05-15 14:28:05.100] [WARN]  [pd_protocol] Timeout waiting for PD response (600ms)",
+      "消息重传: [2026-05-15 14:28:05.400] [WARN]  [pd_protocol] Retransmit REQUEST [Cap=2] 9V/2A (attempt 3/3)",
+      "消息重传: [2026-05-15 14:28:06.200] [ERROR] [pd_protocol] Max retransmit reached (3/3)",
+      "消息超时未响应: [2026-05-15 14:28:06.201] [ERROR] [pd_protocol] REQUEST timeout - no ACCEPT/REJECT received",
+      "PD协商失败: [2026-05-15 14:28:06.600] [ERROR] [pd_protocol] PD negotiation FAILED - falling back to 5V default"
+    ],
+    "state_machine_status": "UNKNOWN",
+    "message_count": 11
+  }
+};
+
+    function render() {
+        const n = DATA;
+
+        // Title
+        document.getElementById('title').textContent = '⚡ PD协议解析可视化';
+        document.getElementById('subtitle').textContent =
+            `${n.log_file} | ${new Date(n.start_time_ms).toLocaleString()} | ${n.message_count} 条消息 | ${n.duration_ms.toFixed(1)}ms`;
+
+        // Summary cards
+        const summary = document.getElementById('summary');
+        const successClass = n.negotiated.success ? 'success' : 'fail';
+        const successText = n.negotiated.success ? '✅ 成功' : '❌ 失败';
+        summary.innerHTML = `
+            <div class="card"><div class="card-label">协商结果</div><div class="card-value ${successClass}">${successText}</div></div>
+            <div class="card"><div class="card-label">协商电压</div><div class="card-value info">${n.negotiated.voltage_mv ? (n.negotiated.voltage_mv / 1000).toFixed(1) + 'V' : 'N/A'}</div></div>
+            <div class="card"><div class="card-label">协商电流</div><div class="card-value info">${n.negotiated.current_ma ? (n.negotiated.current_ma / 1000).toFixed(2) + 'A' : 'N/A'}</div></div>
+            <div class="card"><div class="card-label">协商功率</div><div class="card-value info">${n.negotiated.power_mv_a ? (n.negotiated.power_mv_a / 1000).toFixed(0) + 'W' : 'N/A'}</div></div>
+            <div class="card"><div class="card-label">消息数</div><div class="card-value">${n.message_count}</div></div>
+            <div class="card"><div class="card-label">异常数</div><div class="card-value ${n.anomalies.length ? 'warn' : 'success'}">${n.anomalies.length}</div></div>
+            <div class="card"><div class="card-label">状态机</div><div class="card-value ${n.state_machine_status === 'COMPLETED' ? 'success' : 'fail'}">${n.state_machine_status}</div></div>
+        `;
+
+        // Timing diagram (simple bar chart)
+        renderTimingDiagram(n.messages);
+
+        // Capability table
+        renderCapabilities(n.capabilities);
+
+        // Timeline detail
+        const timeline = document.getElementById('timeline');
+        timeline.innerHTML = n.messages.map((msg, i) => {
+            const cls = msg.direction === 'TX' ? 'tx' : msg.direction === 'RX' ? 'rx' : '';
+            const isError = msg.message_type.includes('FAIL') || msg.message_type.includes('RESET');
+            const timeMs = ((msg.timestamp % 1000000000) % 86400000).toFixed(1);
+            let paramsStr = '';
+            if (msg.params) {
+                paramsStr = Object.entries(msg.params).map(([k, v]) => `${k}=${v}`).join(' | ');
+            }
+            const rawLine = msg.raw_line ? msg.raw_line.replace(/<[^>]*>/g, '') : '';
+            return `
+                <div class="timeline-item ${cls} ${isError ? 'error' : ''}">
+                    <div class="msg-header">
+                        <span class="msg-type">${msg.message_type}</span>
+                        <span class="msg-dir ${cls}">${msg.direction}</span>
+                    </div>
+                    <div class="msg-time">T+${(msg.delay_from_prev).toFixed(1)}ms | 绝对时间 ${timeMs}ms</div>
+                    ${paramsStr ? `<div class="msg-details">${paramsStr}</div>` : ''}
+                    ${rawLine ? `<div class="msg-raw">${rawLine}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+
+        // Anomalies
+        if (n.anomalies.length > 0) {
+            document.getElementById('anomalies-section').style.display = 'block';
+            document.getElementById('anomalies').innerHTML = n.anomalies.map(a =>
+                `<div class="anomaly-item">⚠️ ${a}</div>`
+            ).join('');
+        }
+    }
+
+    function renderTimingDiagram(messages) {
+        const container = document.getElementById('timing-diagram');
+        const width = Math.max(800, messages.length * 100);
+        const height = 80;
+        const barH = 28;
+        const gap = (height - barH) / 2;
+
+        let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`;
+        svg += `<rect width="${width}" height="${height}" fill="transparent"/>`;
+
+        // Source line (TX)
+        const sinkLine = gap;
+        const sourceLine = height - gap - barH;
+
+        // Draw source and sink lines
+        svg += `<line x1="20" y1="${sinkLine + barH/2}" x2="${width-20}" y2="${sinkLine + barH/2}" stroke="#334155" stroke-width="1" stroke-dasharray="4"/>`;
+        svg += `<line x1="20" y1="${sourceLine + barH/2}" x2="${width-20}" y2="${sourceLine + barH/2}" stroke="#334155" stroke-width="1" stroke-dasharray="4"/>`;
+        svg += `<text x="5" y="${sinkLine+4}" fill="#94a3b8" font-size="10">SNK</text>`;
+        svg += `<text x="5" y="${sourceLine+4}" fill="#94a3b8" font-size="10">SRC</text>`;
+
+        // Draw message arrows
+        const maxDelay = messages.reduce((s, m) => s + m.delay_from_prev, 0);
+        let x = 30;
+
+        messages.forEach((msg, i) => {
+            if (i === 0) return;
+            const segWidth = Math.max(20, Math.min(80, (msg.delay_from_prev / maxDelay) * width * 0.5));
+            const isError = msg.raw_line && /ERROR|FAIL|Timeout|Retransmit/i.test(msg.raw_line);
+
+            if (msg.direction === 'TX') {
+                // Draw from source to sink (top)
+                const y = sinkLine;
+                svg += `<rect x="${x}" y="${y}" width="${segWidth}" height="${barH}" rx="3"
+                    fill="${isError ? '#f87171' : '#38bdf8'}" opacity="${isError ? 0.6 : 0.3}" />`;
+                svg += `<text x="${x + segWidth/2}" y="${y + barH/2 + 4}" text-anchor="middle"
+                    fill="${isError ? '#fca5a5' : '#7dd3fc'}" font-size="9" font-weight="bold">${msg.message_type}</text>`;
+                // Arrow
+                svg += `<polygon points="${x+segWidth},${y+4} ${x+segWidth+6},${y+barH/2} ${x+segWidth},${y+barH-4}"
+                    fill="${isError ? '#f87171' : '#38bdf8'}" opacity="0.6"/>`;
+            } else {
+                // Draw from sink to source (bottom)
+                const y = sourceLine;
+                svg += `<rect x="${x}" y="${y}" width="${segWidth}" height="${barH}" rx="3"
+                    fill="${isError ? '#fbbf24' : '#a78bfa'}" opacity="${isError ? 0.5 : 0.3}" />`;
+                svg += `<text x="${x + segWidth/2}" y="${y + barH/2 + 4}" text-anchor="middle"
+                    fill="${isError ? '#fde68a' : '#c4b5fd'}" font-size="9" font-weight="bold">${msg.message_type}</text>`;
+                // Arrow
+                svg += `<polygon points="${x+segWidth},${y+4} ${x+segWidth+6},${y+barH/2} ${x+segWidth},${y+barH-4}"
+                    fill="${isError ? '#fbbf24' : '#a78bfa'}" opacity="0.5"/>`;
+            }
+
+            x += segWidth + 4;
+        });
+
+        svg += `</svg>`;
+        container.innerHTML = svg;
+    }
+
+    function renderCapabilities(capabilities) {
+        const container = document.getElementById('capability-table');
+        if (!capabilities || capabilities.length === 0) {
+            container.innerHTML = '<p style="color:var(--text-dim)">无能力数据</p>';
+            return;
+        }
+        let html = '';
+        capabilities.forEach(cap => {
+            html += `<h4 style="margin:8px 0 4px;color:var(--tx-color)">${cap.source}</h4>`;
+            html += '<table class="cap-table"><tr><th>#</th><th>类型</th><th>电压</th><th>电流</th><th>功率</th></tr>';
+            cap.items.forEach((item, i) => {
+                const v = item.voltage_v ? `${item.voltage_v}V` : '-';
+                const c = item.current_a ? `${item.current_a}A` : '-';
+                const p = item.power_mw ? `${(item.power_mw/1000).toFixed(1)}W` : '-';
+                const type = item.type || item.content || 'N/A';
+                html += `<tr><td>${i+1}</td><td>${type}</td><td>${v}</td><td>${c}</td><td>${p}</td></tr>`;
+            });
+            html += '</table>';
+        });
+        container.innerHTML = html;
+    }
+
+    render();
+    </script>
+</body>
+</html>

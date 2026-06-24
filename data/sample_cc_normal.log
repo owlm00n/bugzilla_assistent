@@ -1,0 +1,14 @@
+[2026-05-20 10:00:00.100] [INFO]  [cc_protocol] CC line initialized, role: DRP
+[2026-05-20 10:00:00.200] [INFO]  [cc_protocol] CC1: Rp=56k (Default), CC2: Open
+[2026-05-20 10:00:00.300] [INFO]  [cc_protocol] Orientation detected: CC1 active (Normal)
+[2026-05-20 10:00:00.500] [INFO]  [cc_protocol] State: AttachWait.SRC
+[2026-05-20 10:00:00.800] [INFO]  [cc_protocol] Rd detected on CC1
+[2026-05-20 10:00:01.000] [INFO]  [cc_protocol] State: Attached.SRC
+[2026-05-20 10:00:01.200] [INFO]  [cc_protocol] Current capability: Default (500mA USB Default)
+[2026-05-20 10:00:01.500] [INFO]  [cc_protocol] Rp changed: 56k -> 22k (1.5A)
+[2026-05-20 10:00:01.600] [INFO]  [cc_protocol] Current capability: 1.5A
+[2026-05-20 10:00:02.000] [INFO]  [cc_protocol] Rp changed: 22k -> 10k (3.0A)
+[2026-05-20 10:00:02.100] [INFO]  [cc_protocol] Current capability: 3.0A
+[2026-05-20 10:00:02.500] [INFO]  [cc_protocol] VCONN enabled on CC2
+[2026-05-20 10:00:02.600] [INFO]  [cc_protocol] VCONN swap completed
+[2026-05-20 10:00:03.000] [INFO]  [cc_protocol] CC connection stable, VBUS=5000mV

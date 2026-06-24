@@ -1,0 +1,34 @@
+[2026-05-18 10:12:00.100] [INFO]  [usb_core] USB host controller initialized
+[2026-05-18 10:12:00.250] [INFO]  [usb_core] Port status change detected
+[2026-05-18 10:12:00.260] [INFO]  [usb_core] Connect detected on port 1, signaling=HS
+[2026-05-18 10:12:00.261] [INFO]  [usb_core] USB Reset signaling started
+[2026-05-18 10:12:00.500] [INFO]  [usb_core] USB Reset completed (10ms)
+[2026-05-18 10:12:00.510] [INFO]  [usb_core] Addressing device...
+[2026-05-18 10:12:00.520] [TX]    [usb_core] GET_DESCRIPTOR [Type=DEVICE Addr=0 WLen=18]
+[2026-05-18 10:12:01.800] [RX]    [usb_core] Device Descriptor received (18 bytes)
+[2026-05-18 10:12:01.801] [INFO]  [usb_core]   bDescriptorType: 0x01 (DEVICE)
+[2026-05-18 10:12:01.802] [INFO]  [usb_core]   bcdUSB: 0x0310 (USB 3.1)
+[2026-05-18 10:12:01.803] [INFO]  [usb_core]   bDeviceClass: 0x00 (Defined by Interface)
+[2026-05-18 10:12:01.804] [INFO]  [usb_core]   bMaxPacketSize0: 0x09 (512 bytes)
+[2026-05-18 10:12:01.805] [INFO]  [usb_core]   idVendor: 0x0BDA (Realtek)
+[2026-05-18 10:12:01.806] [INFO]  [usb_core]   idProduct: 0x8153
+[2026-05-18 10:12:01.807] [INFO]  [usb_core]   bcdDevice: 0x0100
+[2026-05-18 10:12:01.808] [INFO]  [usb_core]   iManufacturer: 0x01 (Realtek)
+[2026-05-18 10:12:01.809] [INFO]  [usb_core]   iProduct: 0x02 (USB3.1 Gigabit Ethernet)
+[2026-05-18 10:12:01.810] [INFO]  [usb_core]   bNumConfigurations: 0x01
+[2026-05-18 10:12:01.900] [TX]    [usb_core] GET_DESCRIPTOR [Type=DEVICE Addr=0 WLen=18] (full)
+[2026-05-18 10:12:02.100] [WARN]  [usb_core] Descriptor read took 200ms (timeout=500ms)
+[2026-05-18 10:12:02.200] [INFO]  [usb_core] Assigning address: 1
+[2026-05-18 10:12:02.210] [TX]    [usb_core] SET_ADDRESS [Addr=1]
+[2026-05-18 10:12:02.400] [INFO]  [usb_core] Device address set to 1
+[2026-05-18 10:12:02.500] [TX]    [usb_core] GET_DESCRIPTOR [Type=CONFIG Addr=0 WLen=04]
+[2026-05-18 10:12:03.200] [WARN]  [usb_core] Descriptor read took 700ms (timeout=500ms) ⚠️ TIMEOUT
+[2026-05-18 10:12:03.201] [ERROR] [usb_core] Config Descriptor read timeout exceeded
+[2026-05-18 10:12:03.300] [WARN]  [usb_core] Retrying GET_DESCRIPTOR [Type=CONFIG] (attempt 2/3)
+[2026-05-18 10:12:04.100] [WARN]  [usb_core] Descriptor read took 800ms (timeout=500ms) ⚠️ TIMEOUT
+[2026-05-18 10:12:04.200] [WARN]  [usb_core] Retrying GET_DESCRIPTOR [Type=CONFIG] (attempt 3/3)
+[2026-05-18 10:12:05.000] [WARN]  [usb_core] Descriptor read took 800ms (timeout=500ms) ⚠️ TIMEOUT
+[2026-05-18 10:12:05.100] [ERROR] [usb_core] Max retransmit reached (3/3) for Config Descriptor
+[2026-05-18 10:12:05.200] [ERROR] [usb_core] USB enumeration FAILED at Config Descriptor stage
+[2026-05-18 10:12:05.300] [INFO]  [usb_core] Port reset initiated
+[2026-05-18 10:12:05.500] [INFO]  [usb_core] Port disabled, device disconnected

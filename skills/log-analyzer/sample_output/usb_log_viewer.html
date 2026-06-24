@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OWLMYCLAW Log Viewer - sample_usb_enum_timeout.log</title>
+<style>
+:root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --border: #0f3460;
+    --text: #e0e0e0;
+    --text-dim: #8892b0;
+    --accent: #64ffda;
+    --error: #ff6b6b;
+    --warn: #ffd93d;
+    --info: #4ecdc4;
+    --tx: #38bdf8;
+    --rx: #a78bfa;
+    --highlight: #ffd93d;
+    --highlight-bg: rgba(255, 217, 61, 0.15);
+    --line-hover: rgba(100, 255, 218, 0.05);
+    --toolbar-bg: #0d1117;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Cascadia Code', 'Fira Code', 'SF Mono', 'Consolas', monospace;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Toolbar */
+.toolbar {
+    background: var(--toolbar-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+.toolbar .title {
+    font-size: 0.85rem;
+    color: var(--accent);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.toolbar .stats {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+.toolbar .spacer { flex: 1; }
+
+/* Search box */
+.search-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    min-width: 280px;
+}
+.search-box:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(100, 255, 218, 0.1);
+}
+.search-box input {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    flex: 1;
+    min-width: 120px;
+}
+.search-box input::placeholder {
+    color: var(--text-dim);
+    opacity: 0.5;
+}
+.search-box .icon {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+}
+.search-box .count {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    min-width: 40px;
+    text-align: right;
+}
+.search-box .btn-clear {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0 4px;
+    display: none;
+}
+.search-box .btn-clear.visible { display: block; }
+.search-box .btn-clear:hover { color: var(--error); }
+
+/* Filter chips */
+.filter-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.chip {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.chip:hover { border-color: var(--accent); color: var(--text); }
+.chip.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+.chip.error { border-color: var(--error); color: var(--error); }
+.chip.error.active { background: var(--error); color: var(--bg); }
+.chip.warn { border-color: var(--warn); color: var(--warn); }
+.chip.warn.active { background: var(--warn); color: var(--bg); }
+
+/* Log container */
+.log-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    counter-reset: line;
+}
+.log-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.log-container::-webkit-scrollbar-track { background: var(--bg); }
+.log-container::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+.log-container::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* Log lines */
+.log-line {
+    display: flex;
+    padding: 1px 0;
+    white-space: pre;
+    counter-increment: line;
+    transition: background 0.1s;
+}
+.log-line:hover { background: var(--line-hover); }
+.log-line.hidden { display: none; }
+.log-line.match { background: var(--highlight-bg); }
+
+.line-num {
+    color: var(--text-dim);
+    opacity: 0.4;
+    min-width: 60px;
+    text-align: right;
+    padding-right: 12px;
+    user-select: none;
+    flex-shrink: 0;
+    font-size: 0.75rem;
+}
+.line-content {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Syntax highlighting */
+.hl-error { color: var(--error); font-weight: 600; }
+.hl-warn { color: var(--warn); }
+.hl-info { color: var(--info); }
+.hl-tx { color: var(--tx); }
+.hl-rx { color: var(--rx); }
+.hl-time { color: var(--text-dim); }
+.hl-module { color: #c084fc; }
+.hl-keyword { background: rgba(255, 217, 61, 0.2); border-radius: 2px; padding: 0 2px; }
+
+/* Status bar */
+.statusbar {
+    background: var(--toolbar-bg);
+    border-top: 1px solid var(--border);
+    padding: 4px 16px;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    display: flex;
+    gap: 16px;
+    flex-shrink: 0;
+}
+
+/* Empty state */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--text-dim);
+    gap: 8px;
+}
+.empty-state .emoji { font-size: 2rem; }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+    <span class="title">📋 sample_usb_enum_timeout.log</span>
+    <span class="stats" id="fileStats"></span>
+    <span class="spacer"></span>
+    <div class="filter-chips" id="filterChips">
+        <span class="chip active" data-filter="all">全部</span>
+        <span class="chip error" data-filter="ERROR">ERROR</span>
+        <span class="chip warn" data-filter="WARN">WARN</span>
+        <span class="chip" data-filter="INFO">INFO</span>
+        <span class="chip" data-filter="TX">TX</span>
+        <span class="chip" data-filter="RX">RX</span>
+    </div>
+    <div class="search-box">
+        <span class="icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="输入关键词筛选（空格分隔多个关键词）..." autofocus>
+        <span class="count" id="matchCount"></span>
+        <button class="btn-clear" id="btnClear" title="清除">✕</button>
+    </div>
+</div>
+
+<div class="log-container" id="logContainer">
+    <div class="empty-state">
+        <span class="emoji">📂</span>
+        <span>正在加载日志...</span>
+    </div>
+</div>
+
+<div class="statusbar">
+    <span id="statusTotal">总行数: 0</span>
+    <span id="statusVisible">可见: 0</span>
+    <span id="statusFilter">筛选: 无</span>
+</div>
+
+<script>
+// ===== Data =====
+const LOG_LINES = [{"num": 1, "text": "[2026-05-18 10:12:00.100] [INFO]  [usb_core] USB host controller initialized", "level": "INFO"}, {"num": 2, "text": "[2026-05-18 10:12:00.250] [INFO]  [usb_core] Port status change detected", "level": "INFO"}, {"num": 3, "text": "[2026-05-18 10:12:00.260] [INFO]  [usb_core] Connect detected on port 1, signaling=HS", "level": "INFO"}, {"num": 4, "text": "[2026-05-18 10:12:00.261] [INFO]  [usb_core] USB Reset signaling started", "level": "INFO"}, {"num": 5, "text": "[2026-05-18 10:12:00.500] [INFO]  [usb_core] USB Reset completed (10ms)", "level": "INFO"}, {"num": 6, "text": "[2026-05-18 10:12:00.510] [INFO]  [usb_core] Addressing device...", "level": "INFO"}, {"num": 7, "text": "[2026-05-18 10:12:00.520] [TX]    [usb_core] GET_DESCRIPTOR [Type=DEVICE Addr=0 WLen=18]", "level": "TX"}, {"num": 8, "text": "[2026-05-18 10:12:01.800] [RX]    [usb_core] Device Descriptor received (18 bytes)", "level": "RX"}, {"num": 9, "text": "[2026-05-18 10:12:01.801] [INFO]  [usb_core]   bDescriptorType: 0x01 (DEVICE)", "level": "INFO"}, {"num": 10, "text": "[2026-05-18 10:12:01.802] [INFO]  [usb_core]   bcdUSB: 0x0310 (USB 3.1)", "level": "INFO"}, {"num": 11, "text": "[2026-05-18 10:12:01.803] [INFO]  [usb_core]   bDeviceClass: 0x00 (Defined by Interface)", "level": "INFO"}, {"num": 12, "text": "[2026-05-18 10:12:01.804] [INFO]  [usb_core]   bMaxPacketSize0: 0x09 (512 bytes)", "level": "INFO"}, {"num": 13, "text": "[2026-05-18 10:12:01.805] [INFO]  [usb_core]   idVendor: 0x0BDA (Realtek)", "level": "INFO"}, {"num": 14, "text": "[2026-05-18 10:12:01.806] [INFO]  [usb_core]   idProduct: 0x8153", "level": "INFO"}, {"num": 15, "text": "[2026-05-18 10:12:01.807] [INFO]  [usb_core]   bcdDevice: 0x0100", "level": "INFO"}, {"num": 16, "text": "[2026-05-18 10:12:01.808] [INFO]  [usb_core]   iManufacturer: 0x01 (Realtek)", "level": "INFO"}, {"num": 17, "text": "[2026-05-18 10:12:01.809] [INFO]  [usb_core]   iProduct: 0x02 (USB3.1 Gigabit Ethernet)", "level": "INFO"}, {"num": 18, "text": "[2026-05-18 10:12:01.810] [INFO]  [usb_core]   bNumConfigurations: 0x01", "level": "INFO"}, {"num": 19, "text": "[2026-05-18 10:12:01.900] [TX]    [usb_core] GET_DESCRIPTOR [Type=DEVICE Addr=0 WLen=18] (full)", "level": "TX"}, {"num": 20, "text": "[2026-05-18 10:12:02.100] [WARN]  [usb_core] Descriptor read took 200ms (timeout=500ms)", "level": "WARN"}, {"num": 21, "text": "[2026-05-18 10:12:02.200] [INFO]  [usb_core] Assigning address: 1", "level": "INFO"}, {"num": 22, "text": "[2026-05-18 10:12:02.210] [TX]    [usb_core] SET_ADDRESS [Addr=1]", "level": "TX"}, {"num": 23, "text": "[2026-05-18 10:12:02.400] [INFO]  [usb_core] Device address set to 1", "level": "INFO"}, {"num": 24, "text": "[2026-05-18 10:12:02.500] [TX]    [usb_core] GET_DESCRIPTOR [Type=CONFIG Addr=0 WLen=04]", "level": "TX"}, {"num": 25, "text": "[2026-05-18 10:12:03.200] [WARN]  [usb_core] Descriptor read took 700ms (timeout=500ms) ⚠️ TIMEOUT", "level": "WARN"}, {"num": 26, "text": "[2026-05-18 10:12:03.201] [ERROR] [usb_core] Config Descriptor read timeout exceeded", "level": "ERROR"}, {"num": 27, "text": "[2026-05-18 10:12:03.300] [WARN]  [usb_core] Retrying GET_DESCRIPTOR [Type=CONFIG] (attempt 2/3)", "level": "WARN"}, {"num": 28, "text": "[2026-05-18 10:12:04.100] [WARN]  [usb_core] Descriptor read took 800ms (timeout=500ms) ⚠️ TIMEOUT", "level": "WARN"}, {"num": 29, "text": "[2026-05-18 10:12:04.200] [WARN]  [usb_core] Retrying GET_DESCRIPTOR [Type=CONFIG] (attempt 3/3)", "level": "WARN"}, {"num": 30, "text": "[2026-05-18 10:12:05.000] [WARN]  [usb_core] Descriptor read took 800ms (timeout=500ms) ⚠️ TIMEOUT", "level": "WARN"}, {"num": 31, "text": "[2026-05-18 10:12:05.100] [ERROR] [usb_core] Max retransmit reached (3/3) for Config Descriptor", "level": "ERROR"}, {"num": 32, "text": "[2026-05-18 10:12:05.200] [ERROR] [usb_core] USB enumeration FAILED at Config Descriptor stage", "level": "ERROR"}, {"num": 33, "text": "[2026-05-18 10:12:05.300] [INFO]  [usb_core] Port reset initiated", "level": "INFO"}, {"num": 34, "text": "[2026-05-18 10:12:05.500] [INFO]  [usb_core] Port disabled, device disconnected", "level": "INFO"}];
+
+// ===== State =====
+let activeFilter = 'all';
+let searchTerms = [];
+
+// ===== Init =====
+function init() {{
+    const container = document.getElementById('logContainer');
+    container.innerHTML = '';
+
+    if (LOG_LINES.length === 0) {{
+        container.innerHTML = '<div class="empty-state"><span class="emoji">📭</span><span>日志为空</span></div>';
+        return;
+    }}
+
+    LOG_LINES.forEach((line, idx) => {{
+        const div = document.createElement('div');
+        div.className = 'log-line';
+        div.dataset.index = idx;
+        div.dataset.level = line.level || '';
+        div.dataset.text = line.text || '';
+
+        // Line number
+        const numSpan = document.createElement('span');
+        numSpan.className = 'line-num';
+        numSpan.textContent = line.num || (idx + 1);
+        div.appendChild(numSpan);
+
+        // Content with highlighting
+        const contentSpan = document.createElement('span');
+        contentSpan.className = 'line-content';
+        contentSpan.innerHTML = highlightLine(line.text || '', line.level || '');
+        div.appendChild(contentSpan);
+
+        container.appendChild(div);
+    }});
+
+    updateStats();
+    applyAllFilters();
+}}
+
+function highlightLine(text, level) {{
+    // Escape HTML
+    let html = escapeHtml(text);
+
+    // Level-based coloring
+    if (level === 'ERROR') {{
+        html = '<span class="hl-error">' + html + '</span>';
+    }} else if (level === 'WARN') {{
+        html = '<span class="hl-warn">' + html + '</span>';
+    }}
+
+    // Highlight timestamps
+    html = html.replace(/(\[\d{{4}}-\d{{2}}-\d{{2}}\s+\d{{2}}:\d{{2}}:\d{{2}}\.\d{{3}}\])/g,
+        '<span class="hl-time">$1</span>');
+
+    // Highlight TX/RX
+    html = html.replace(/\[TX\]/g, '<span class="hl-tx">[TX]</span>');
+    html = html.replace(/\[RX\]/g, '<span class="hl-rx">[RX]</span>');
+
+    // Highlight module names
+    html = html.replace(/\[(\w+)\]/g, function(match, mod) {{
+        if (['TX', 'RX', 'INFO', 'WARN', 'ERROR'].includes(mod)) return match;
+        return '<span class="hl-module">[' + mod + ']</span>';
+    }});
+
+    return html;
+}}
+
+function escapeHtml(text) {{
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}}
+
+// ===== Filtering =====
+function applyAllFilters() {{
+    const lines = document.querySelectorAll('.log-line');
+    let visibleCount = 0;
+
+    lines.forEach(line => {{
+        const level = line.dataset.level;
+        const text = line.dataset.text.toLowerCase();
+
+        // Level filter
+        let levelMatch = activeFilter === 'all' || level === activeFilter;
+
+        // Search filter
+        let searchMatch = true;
+        if (searchTerms.length > 0) {{
+            searchMatch = searchTerms.every(term => text.includes(term.toLowerCase()));
+        }}
+
+        if (levelMatch && searchMatch) {{
+            line.classList.remove('hidden');
+            visibleCount++;
+
+            // Highlight search keywords
+            if (searchTerms.length > 0) {{
+                line.classList.add('match');
+                const contentSpan = line.querySelector('.line-content');
+                let html = contentSpan.textContent;
+                html = escapeHtml(html);
+                searchTerms.forEach(term => {{
+                    const regex = new RegExp('(' + escapeRegex(term) + ')', 'gi');
+                    html = html.replace(regex, '<span class="hl-keyword">$1</span>');
+                }});
+                contentSpan.innerHTML = html;
+            }} else {{
+                line.classList.remove('match');
+            }}
+        }} else {{
+            line.classList.add('hidden');
+        }}
+    }});
+
+    updateStats(visibleCount);
+}}
+
+function escapeRegex(str) {{
+    return str.replace(/[.*+?^${{}}()|[\]\\]/g, '\\$&');
+}}
+
+function updateStats(visibleCount) {{
+    const total = LOG_LINES.length;
+    document.getElementById('fileStats').textContent =
+        '共 ' + total + ' 行';
+    document.getElementById('statusTotal').textContent =
+        '总行数: ' + total;
+    document.getElementById('statusVisible').textContent =
+        '可见: ' + (visibleCount !== undefined ? visibleCount : total);
+}}
+
+// ===== Event Handlers =====
+
+// Filter chips
+document.getElementById('filterChips').addEventListener('click', function(e) {{
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeFilter = chip.dataset.filter;
+
+    document.getElementById('statusFilter').textContent =
+        '筛选: ' + (activeFilter === 'all' ? '全部' : activeFilter);
+
+    applyAllFilters();
+}});
+
+// Search input
+const searchInput = document.getElementById('searchInput');
+const btnClear = document.getElementById('btnClear');
+const matchCount = document.getElementById('matchCount');
+
+searchInput.addEventListener('input', function() {{
+    const val = this.value.trim();
+    searchTerms = val ? val.split(/\s+/) : [];
+
+    if (searchTerms.length > 0) {{
+        btnClear.classList.add('visible');
+        matchCount.textContent = searchTerms.length + '词';
+        document.getElementById('statusFilter').textContent =
+            '搜索: ' + searchTerms.join(' + ');
+    }} else {{
+        btnClear.classList.remove('visible');
+        matchCount.textContent = '';
+        document.getElementById('statusFilter').textContent =
+            '筛选: ' + (activeFilter === 'all' ? '全部' : activeFilter);
+    }}
+
+    applyAllFilters();
+}});
+
+btnClear.addEventListener('click', function() {{
+    searchInput.value = '';
+    searchTerms = [];
+    btnClear.classList.remove('visible');
+    matchCount.textContent = '';
+    applyAllFilters();
+}});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {{
+    // Ctrl+F / Cmd+F -> focus search
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {{
+        e.preventDefault();
+        searchInput.focus();
+        searchInput.select();
+    }}
+    // Escape -> clear search
+    if (e.key === 'Escape') {{
+        searchInput.value = '';
+        searchTerms = [];
+        btnClear.classList.remove('visible');
+        matchCount.textContent = '';
+        applyAllFilters();
+        searchInput.blur();
+    }}
+}});
+
+// Init on load
+init();
+</script>
+</body>
+</html>

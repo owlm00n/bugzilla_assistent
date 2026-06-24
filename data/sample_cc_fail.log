@@ -1,0 +1,7 @@
+[2026-05-20 11:00:00.100] [INFO]  [cc_protocol] CC line initialized, role: DRP
+[2026-05-20 11:00:00.200] [INFO]  [cc_protocol] CC1: Rp=56k, CC2: Rp=56k
+[2026-05-20 11:00:00.300] [WARN]  [cc_protocol] ⚠️ Both CC lines show Rp - possible short
+[2026-05-20 11:00:00.500] [ERROR] [cc_protocol] CC short circuit detected between CC1 and CC2
+[2026-05-20 11:00:00.600] [WARN]  [cc_protocol] Debounce timeout - CC state unstable
+[2026-05-20 11:00:00.800] [ERROR] [cc_protocol] CC connection FAILED - check cable/connector
+[2026-05-20 11:00:01.000] [INFO]  [cc_protocol] State: Unattached.SRC

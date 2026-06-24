@@ -1,0 +1,44 @@
+# Role: Test Engineer
+# Focus: System-level testing, log correlation, cross-module issue detection
+
+role: test_engineer
+display_name: "测试工程师"
+description: "专注于系统级测试、日志关联分析、跨模块问题检测、回归测试"
+
+focus_keywords:
+  - "ERROR"
+  - "WARN"
+  - "FAIL"
+  - "TIMEOUT"
+  - "Reset"
+  - "Recovery"
+  - "Regression"
+  - "Test"
+  - "Pass"
+  - "Fail"
+  - "VBUS"
+  - "USB"
+  - "PD"
+  - "Power"
+  - "Thermal"
+
+concern_modules:
+  - "kernel"
+  - "power"
+  - "usb"
+  - "pd"
+  - "thermal"
+  - "charger"
+  - "tcpm"
+
+search_strategy: "按时间线关联跨模块日志，优先关注ERROR和WARN级别，检测Power/PD/USB模块间的级联故障"
+
+anomaly_thresholds:
+  error_count_critical: 5
+  warn_count_threshold: 20
+  time_window_ms: 1000
+
+typical_workflows:
+  - "测试流程: 上电 -> 连接 -> 枚举 -> 协商 -> 充电 -> 断开 -> 记录结果"
+  - "回归测试: 对比历史log，检测新增ERROR和性能退化"
+  - "故障排查: 跨模块日志关联 -> 异常聚类 -> 根因定位"

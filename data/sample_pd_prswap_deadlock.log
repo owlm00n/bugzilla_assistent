@@ -1,0 +1,24 @@
+[2026-05-20 16:42:00.100] [INFO]  [pd_protocol] PD charger initialized, role: BOTH (SRC/SNK capable)
+[2026-05-20 16:42:00.200] [INFO]  [pd_protocol] SRC_CAP sent [Caps=2] 5V/3A, 9V/2A
+[2026-05-20 16:42:00.800] [RX]    [pd_protocol] SNK_CAP received [Caps=2] 5V/2A, 9V/1.5A
+[2026-05-20 16:42:01.000] [TX]    [pd_protocol] REQUEST [Cap=2] 9V/1.5A
+[2026-05-20 16:42:01.300] [RX]    [pd_protocol] ACCEPT
+[2026-05-20 16:42:01.800] [RX]    [pd_protocol] PS_RDY
+[2026-05-20 16:42:01.801] [INFO]  [pd_protocol] ⚡ VBUS stable at 9050mV - negotiation OK
+[2026-05-20 16:42:10.100] [TX]    [pd_protocol] PR_SWAP [Type=ACCEPT] (request role swap)
+[2026-05-20 16:42:10.400] [RX]    [pd_protocol] PR_SWAP [Type=ACCEPT] (sink acknowledges)
+[2026-05-20 16:42:10.500] [INFO]  [pd_protocol] Sending Hard Reset (role will change)
+[2026-05-20 16:42:10.800] [RX]    [pd_protocol] Hard Reset received
+[2026-05-20 16:42:10.900] [INFO]  [pd_protocol] Role switched: now acting as SNK
+[2026-05-20 16:42:11.000] [RX]    [pd_protocol] SRC_CAP [Caps=2] 5V/2A, 12V/1.5A (from new source)
+[2026-05-20 16:42:11.500] [TX]    [pd_protocol] REQUEST [Cap=1] 5V/1.5A
+[2026-05-20 16:42:11.800] [RX]    [pd_protocol] ACCEPT
+[2026-05-20 16:42:12.200] [RX]    [pd_protocol] PS_RDY
+[2026-05-20 16:42:12.201] [INFO]  [pd_protocol] ⚡ VBUS stable at 5050mV - post PR_SWAP OK
+[2026-05-20 16:42:15.000] [TX]    [pd_protocol] PR_SWAP [Type=REQUEST] (request role swap back)
+[2026-05-20 16:42:15.300] [TX]    [pd_protocol] REQUEST [Cap=2] 9V/2A (new source offering 9V)
+[2026-05-20 16:42:15.500] [ERROR] [pd_protocol] ⚠️ Unexpected REQUEST - current role is SNK, cannot send REQUEST
+[2026-05-20 16:42:15.600] [ERROR] [pd_protocol] DEADLOCK: both sides trying to send REQUEST simultaneously
+[2026-05-20 16:42:15.700] [WARN]  [pd_protocol] Hard Reset cycle detected
+[2026-05-20 16:42:16.000] [INFO]  [pd_protocol] Hard Reset transmitted
+[2026-05-20 16:42:16.500] [ERROR] [pd_protocol] PD Line state machine stuck in Hard Reset loop

@@ -1,0 +1,31 @@
+[2026-05-15 14:28:01.123] [INFO]  [pd_protocol] PD charger initialized, role: SRC
+[2026-05-15 14:28:01.245] [INFO]  [pd_protocol] CC state: attached_src, Rp=5.1k
+[2026-05-15 14:28:01.256] [INFO]  [pd_protocol] Hard Reset transmitted
+[2026-05-15 14:28:01.500] [INFO]  [pd_protocol] Hard Reset received from sink
+[2026-05-15 14:28:01.512] [INFO]  [pd_protocol] Starting negotiation...
+[2026-05-15 14:28:01.523] [INFO]  [pd_protocol] Capability 1: Fixed PDO - 5V/3A (15000mW)
+[2026-05-15 14:28:01.524] [INFO]  [pd_protocol] Capability 2: Fixed PDO - 9V/2A (18000mW)
+[2026-05-15 14:28:01.525] [INFO]  [pd_protocol] Capability 3: Fixed PDO - 12V/1.5A (18000mW)
+[2026-05-15 14:28:01.526] [INFO]  [pd_protocol] Capability 4: Variable PDO - 12-20V/3A (36000mW)
+[2026-05-15 14:28:01.600] [TX]    [pd_protocol] SRC_CAP [Caps=4] vbus=5000mV, current=3000mA
+[2026-05-15 14:28:01.601] [INFO]  [pd_protocol] SRC_CAP sent successfully
+[2026-05-15 14:28:02.810] [RX]    [pd_protocol] WAIT_PWR_OK received (sink is powering up)
+[2026-05-15 14:28:02.811] [INFO]  [pd_protocol] Waiting for sink to stabilize...
+[2026-05-15 14:28:03.500] [RX]    [pd_protocol] SNK_CAP received
+[2026-05-15 14:28:03.501] [INFO]  [pd_protocol]   Capability 1: Fixed Operated - 5V/3A (15000mW)
+[2026-05-15 14:28:03.502] [INFO]  [pd_protocol]   Capability 2: Fixed Operated - 9V/2A (18000mW)
+[2026-05-15 14:28:03.503] [INFO]  [pd_protocol]   Capability 3: Variable Operated - 9-12V/2.5A (25000mW)
+[2026-05-15 14:28:03.800] [TX]    [pd_protocol] REQUEST [Cap=2] 9V/2A
+[2026-05-15 14:28:03.801] [INFO]  [pd_protocol] REQUEST sent, awaiting ACCEPT/REJECT
+[2026-05-15 14:28:04.200] [WARN]  [pd_protocol] Timeout waiting for PD response (400ms)
+[2026-05-15 14:28:04.500] [WARN]  [pd_protocol] Retransmit REQUEST [Cap=2] 9V/2A (attempt 2/3)
+[2026-05-15 14:28:05.100] [WARN]  [pd_protocol] Timeout waiting for PD response (600ms)
+[2026-05-15 14:28:05.400] [WARN]  [pd_protocol] Retransmit REQUEST [Cap=2] 9V/2A (attempt 3/3)
+[2026-05-15 14:28:06.200] [ERROR] [pd_protocol] Max retransmit reached (3/3)
+[2026-05-15 14:28:06.201] [ERROR] [pd_protocol] REQUEST timeout - no ACCEPT/REJECT received
+[2026-05-15 14:28:06.300] [INFO]  [pd_protocol] Sending Hard Reset to reset PD state machine
+[2026-05-15 14:28:06.500] [INFO]  [pd_protocol] VBUS check: measured=5100mV, expected=9000mV
+[2026-05-15 14:28:06.501] [WARN]  [pd_protocol] ⚠️ VBUS anomaly: expected 9000mV, actual 5100mV
+[2026-05-15 14:28:06.600] [ERROR] [pd_protocol] PD negotiation FAILED - falling back to 5V default
+[2026-05-15 14:28:06.700] [INFO]  [pd_protocol] State transition: SRC_HARD_RESET -> SRC_DISCONNECTED
+[2026-05-15 14:28:07.000] [INFO]  [pd_protocol] VBUS stabilized at 5050mV (default USB BC 1.2)
